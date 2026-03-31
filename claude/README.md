@@ -5,15 +5,17 @@ Connect your [Lightup](https://lightup.ai) data quality platform to [Claude Code
 ## Quick Start
 
 ```bash
-# 1. Install Claude Code (skip if you already have it)
-npm install -g @anthropic-ai/claude-code
+# 1. Install Claude Code only if it is not already installed
+command -v claude >/dev/null || npm install -g @anthropic-ai/claude-code
+
+# 2. Authenticate if you are not already signed in
 claude auth login
 
-# 2. Run the setup script with your Lightup credential file
-curl -sL https://raw.githubusercontent.com/lightup-data/lightup-claude-setup/main/setup.sh \
+# 3. Run the setup script with your Lightup credential file
+curl -sL https://raw.githubusercontent.com/lightup-data/lightup/main/claude/setup.sh \
   | bash -s -- ~/Downloads/lightup-api-credential.json
 
-# 3. Start using it
+# 4. Start using it
 claude
 > list workspaces
 ```
@@ -32,23 +34,33 @@ That's it. The script reads your credential file, infers the MCP endpoint, and r
 
 ---
 
-## 1. Install Claude Code
+## 1. Confirm Claude Code Is Available
 
 Claude Code is Anthropic's command-line AI assistant. It runs in your terminal and connects to external services (like Lightup) through MCP servers.
 
-### 1.1 Install via npm
+### 1.1 Check whether Claude Code is already installed
 
-```bash
-npm install -g @anthropic-ai/claude-code
-```
-
-Verify the installation:
+Run:
 
 ```bash
 claude --version
 ```
 
-### 1.2 Authenticate
+If that returns a version number, Claude Code is already installed and you can skip to authentication.
+
+If the command is not found, install it with npm:
+
+```bash
+npm install -g @anthropic-ai/claude-code
+```
+
+Then verify the installation:
+
+```bash
+claude --version
+```
+
+### 1.2 Authenticate if needed
 
 Claude Code requires an Anthropic account. Run the login command and follow the browser-based authentication flow:
 
@@ -56,7 +68,7 @@ Claude Code requires an Anthropic account. Run the login command and follow the 
 claude auth login
 ```
 
-This opens your browser for authentication. Once complete, your session is stored locally and you won't need to log in again on this machine.
+This opens your browser for authentication. If you are already signed in on this machine, you do not need to repeat this step.
 
 ### 1.3 Quick Smoke Test
 
@@ -130,15 +142,15 @@ API Reference: [docs.lightup.ai/reference/post_api-v1-token-refresh](https://doc
 Download and run the setup script. It reads your credential file, infers the correct MCP endpoint from your hostname (`app.X.lightup.ai` → `mcp.X.lightup.ai`), and registers everything with Claude Code automatically.
 
 ```bash
-curl -sL https://raw.githubusercontent.com/lightup-data/lightup-claude-setup/main/setup.sh \
+curl -sL https://raw.githubusercontent.com/lightup-data/lightup/main/claude/setup.sh \
   | bash -s -- ~/Downloads/lightup-api-credential.json
 ```
 
 Or if you already have the script locally:
 
 ```bash
-chmod +x setup.sh
-./setup.sh ~/Downloads/lightup-api-credential.json
+chmod +x claude/setup.sh
+./claude/setup.sh ~/Downloads/lightup-api-credential.json
 ```
 
 The script performs these steps:
@@ -217,8 +229,14 @@ You should see your Lightup workspaces listed. If you see an authentication erro
 To update credentials when your token expires:
 
 ```bash
-./setup.sh ~/Downloads/lightup-api-credential-new.json
+./claude/setup.sh ~/Downloads/lightup-api-credential-new.json
 ```
+
+## Related Guides
+
+- Repository overview: [../README.md](../README.md)
+- Gemini CLI: [../gemini-cli/README.md](../gemini-cli/README.md)
+- Codex CLI: [../codex-cli/README.md](../codex-cli/README.md)
 
 ---
 
