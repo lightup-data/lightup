@@ -8,7 +8,7 @@ set -euo pipefail
 
 # ----- Configuration --------------------------------------------------------
 CLAUDE_BIN=""  # resolved in check_prerequisites
-MCP_PORT="${LIGHTUP_MCP_PORT:-8765}"
+MCP_PORT="${LIGHTUP_MCP_PORT:-}"
 MCP_NAME="lightup"
 SCOPE="-s user"
 
@@ -237,7 +237,7 @@ infer_mcp_endpoint() {
     fi
 
     # Allow env override, otherwise use inferred endpoint (no port by default)
-    local mcp_base="http://${mcp_host}${MCP_PORT:+:${MCP_PORT}}"
+    local mcp_base="https://${mcp_host}${MCP_PORT:+:${MCP_PORT}}"
     local mcp_server="${LIGHTUP_MCP_SERVER:-$mcp_base}"
     echo "$mcp_server"
 }
