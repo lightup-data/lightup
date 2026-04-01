@@ -105,7 +105,7 @@ dispatch_client() {
                 # Running via `curl | bash` — download the client script to a temp file.
                 local tmp_script
                 tmp_script="$(mktemp)"
-                trap 'rm -f "$tmp_script"' EXIT
+                trap "rm -f '$tmp_script'" EXIT
                 info "Downloading Claude Code setup script..."
                 if ! curl -fsSL "$LIGHTUP_REPO_RAW/claude/setup.sh" -o "$tmp_script"; then
                     err "Failed to download Claude setup script from $LIGHTUP_REPO_RAW"

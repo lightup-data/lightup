@@ -265,11 +265,49 @@ register_mcp() {
 # ----- Verify ---------------------------------------------------------------
 verify_setup() {
     info "Verifying MCP registration..."
-    if "$CLAUDE_BIN" mcp list 2>/dev/null | grep -q "$MCP_NAME"; then
-        ok "Lightup MCP server is registered."
-    else
+    if ! "$CLAUDE_BIN" mcp list 2>/dev/null | grep -q "$MCP_NAME"; then
         warn "Could not verify registration. Run 'claude mcp list' manually."
+        return
     fi
+    ok "Lightup MCP server is registered."
+
+    # Test the actual SSE endpoint — this is what Claude Code connects to,
+    # so an HTTP error here means the MCP connection will fail in-session too.
+    local mcp_server sse_url http_code
+    mcp_server=$(infer_mcp_endpoint "$LIGHTUP_HOST")
+    sse_url="${mcp_server}/sse?host=${LIGHTUP_HOST}&refresh_token=${LIGHTUP_REFRESH_TOKEN}"
+
+    info "Testing MCP SSE endpoint..."
+    http_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$sse_url" 2>/dev/null) || true
+
+    case "$http_code" in
+        200)
+            ok "MCP server is reachable and accepted the connection."
+            ;;
+        000)
+            err "MCP server is not reachable at $mcp_server"
+            echo ""
+            echo "  The server may be down or your network/firewall may be blocking it."
+            echo "  Contact your Lightup administrator to confirm the MCP server is running."
+            echo ""
+            exit 1
+            ;;
+        401|403)
+            err "MCP server rejected the credentials (HTTP $http_code)."
+            echo ""
+            echo "  Your refresh token may be expired. Download a new credential file from:"
+            echo "  Lightup UI → Profile → API Credentials"
+            echo ""
+            exit 1
+            ;;
+        *)
+            err "MCP server returned unexpected HTTP $http_code."
+            echo ""
+            echo "  Contact your Lightup administrator."
+            echo ""
+            exit 1
+            ;;
+    esac
 }
 
 # ----- Main -----------------------------------------------------------------
