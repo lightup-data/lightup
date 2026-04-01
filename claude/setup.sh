@@ -8,7 +8,7 @@ set -euo pipefail
 
 # ----- Configuration --------------------------------------------------------
 CLAUDE_BIN=""  # resolved in check_prerequisites
-MCP_PORT="${LIGHTUP_MCP_PORT:-}"
+MCP_PORT="${LIGHTUP_MCP_PORT:-8765}"
 MCP_NAME="lightup"
 SCOPE="-s user"
 
