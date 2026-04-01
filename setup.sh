@@ -1,7 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# When invoked via `curl | bash`, BASH_SOURCE[0] is unset or empty.
+# Fall back to an empty ROOT_DIR and download client scripts at runtime.
+if [[ -n "${BASH_SOURCE[0]:-}" && "${BASH_SOURCE[0]}" != "bash" ]]; then
+    ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+else
+    ROOT_DIR=""
+fi
+
+LIGHTUP_REPO_RAW="${LIGHTUP_REPO_RAW:-https://raw.githubusercontent.com/lightup-data/lightup/main}"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -90,13 +98,22 @@ dispatch_client() {
     case "$client" in
         claude)
             local target_script="$ROOT_DIR/claude/setup.sh"
-            if [[ ! -f "$target_script" ]]; then
-                err "Missing setup script: $target_script"
-                exit 1
+            if [[ -n "$ROOT_DIR" && -f "$target_script" ]]; then
+                info "Running Claude Code setup..."
+                bash "$target_script" "$@"
+            else
+                # Running via `curl | bash` — download the client script to a temp file.
+                local tmp_script
+                tmp_script="$(mktemp)"
+                trap 'rm -f "$tmp_script"' EXIT
+                info "Downloading Claude Code setup script..."
+                if ! curl -fsSL "$LIGHTUP_REPO_RAW/claude/setup.sh" -o "$tmp_script"; then
+                    err "Failed to download Claude setup script from $LIGHTUP_REPO_RAW"
+                    exit 1
+                fi
+                info "Running Claude Code setup..."
+                bash "$tmp_script" "$@"
             fi
-
-            info "Running Claude Code setup..."
-            bash "$target_script" "$@"
             ok "Claude Code setup finished."
             ;;
         gemini-cli|codex-cli)
