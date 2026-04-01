@@ -10,10 +10,10 @@ Use the repo-level setup wrapper and pass the client you want to configure:
 
 ```bash
 curl -sL https://raw.githubusercontent.com/lightup-data/lightup/main/setup.sh \
-  | bash -s -- claude ~/Downloads/lightup-api-credential.json
+  | bash -s -- claude
 ```
 
-Claude-specific installation and usage details live in the [Claude Code guide](./claude/README.md).
+The setup flow automatically looks for `lightup-api-credential*.json` in common locations such as `~/Downloads`. Claude-specific installation and usage details live in the [Claude Code guide](./claude/README.md).
 
 ## Available Guides
 

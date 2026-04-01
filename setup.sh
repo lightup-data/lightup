@@ -36,6 +36,7 @@ Supported clients:
   codex-cli    Reserved for future support
 
 Examples:
+  ./setup.sh claude
   ./setup.sh claude ~/Downloads/lightup-api-credential.json
   ./setup.sh
 EOF
