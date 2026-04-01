@@ -10,6 +10,7 @@ else
 fi
 
 LIGHTUP_REPO_RAW="${LIGHTUP_REPO_RAW:-https://raw.githubusercontent.com/lightup-data/lightup/main}"
+SANDBOX_REPO_RAW="${SANDBOX_REPO_RAW:-https://raw.githubusercontent.com/lightup-data/sandbox/main}"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -32,11 +33,13 @@ Usage:
 
 Supported clients:
   claude       Configure Lightup for Claude Code
+  sandbox      Install the Lightup Sandbox (Databricks transformation MCP)
   gemini-cli   Reserved for future support
   codex-cli    Reserved for future support
 
 Examples:
   ./setup.sh claude ~/Downloads/lightup-api-credential.json
+  ./setup.sh sandbox
   ./setup.sh
 EOF
 }
@@ -46,6 +49,9 @@ normalize_client() {
     case "$raw" in
         claude|claude-code)
             echo "claude"
+            ;;
+        sandbox)
+            echo "sandbox"
             ;;
         gemini|gemini-cli)
             echo "gemini-cli"
@@ -65,27 +71,32 @@ prompt_for_client() {
     echo "" >&2
     echo "Select a Lightup client to configure:" >&2
     echo "  1) Claude Code" >&2
-    echo "  2) Gemini CLI (coming soon)" >&2
-    echo "  3) Codex CLI (coming soon)" >&2
+    echo "  2) Sandbox (Databricks transformation MCP)" >&2
+    echo "  3) Gemini CLI (coming soon)" >&2
+    echo "  4) Codex CLI (coming soon)" >&2
     echo "" >&2
 
     while true; do
-        read -rp "Choice [1-3]: " choice
+        read -rp "Choice [1-4]: " choice
         case "$choice" in
             1)
                 echo "claude"
                 return 0
                 ;;
             2)
-                echo "gemini-cli"
+                echo "sandbox"
                 return 0
                 ;;
             3)
+                echo "gemini-cli"
+                return 0
+                ;;
+            4)
                 echo "codex-cli"
                 return 0
                 ;;
             *)
-                warn "Invalid choice. Enter 1, 2, or 3."
+                warn "Invalid choice. Enter 1, 2, 3, or 4."
                 ;;
         esac
     done
@@ -115,6 +126,19 @@ dispatch_client() {
                 bash "$tmp_script" "$@"
             fi
             ok "Claude Code setup finished."
+            ;;
+        sandbox)
+            local tmp_script
+            tmp_script="$(mktemp)"
+            trap "rm -f '$tmp_script'" EXIT
+            info "Downloading Sandbox install script..."
+            if ! curl -fsSL "$SANDBOX_REPO_RAW/install.sh" -o "$tmp_script"; then
+                err "Failed to download Sandbox install script from $SANDBOX_REPO_RAW"
+                exit 1
+            fi
+            info "Running Sandbox install..."
+            bash "$tmp_script"
+            ok "Sandbox install finished."
             ;;
         gemini-cli|codex-cli)
             warn "$client support is not available yet."
