@@ -7,6 +7,7 @@
 set -euo pipefail
 
 # ----- Configuration --------------------------------------------------------
+CLAUDE_BIN=""  # resolved in check_prerequisites
 MCP_PORT="${LIGHTUP_MCP_PORT:-8765}"
 MCP_NAME="lightup"
 SCOPE="-s user"
@@ -94,8 +95,14 @@ check_prerequisites() {
         info "jq not found — using python3 as JSON parser"
     fi
 
-    # Check for claude (Claude Code CLI)
-    if ! command -v claude &>/dev/null; then
+    # Check for claude (Claude Code CLI).
+    # `command -v` finds binaries in PATH but not shell aliases, so also check
+    # the default local install path used by the Claude Code installer.
+    if command -v claude &>/dev/null; then
+        CLAUDE_BIN="$(command -v claude)"
+    elif [[ -x "$HOME/.claude/local/claude" ]]; then
+        CLAUDE_BIN="$HOME/.claude/local/claude"
+    else
         err "Claude Code CLI is not installed."
         echo ""
         echo "  Install Claude Code:"
@@ -244,10 +251,10 @@ register_mcp() {
     info "Inferred MCP endpoint: $mcp_server"
 
     info "Removing any existing '$MCP_NAME' MCP registration..."
-    claude mcp remove "$MCP_NAME" $SCOPE 2>/dev/null || true
+    "$CLAUDE_BIN" mcp remove "$MCP_NAME" $SCOPE 2>/dev/null || true
 
     info "Registering Lightup MCP server with Claude Code..."
-    claude mcp add --transport sse "$MCP_NAME" "$sse_url" $SCOPE
+    "$CLAUDE_BIN" mcp add --transport sse "$MCP_NAME" "$sse_url" $SCOPE
 
     ok "MCP server registered successfully!"
     echo ""
@@ -258,7 +265,7 @@ register_mcp() {
 # ----- Verify ---------------------------------------------------------------
 verify_setup() {
     info "Verifying MCP registration..."
-    if claude mcp list 2>/dev/null | grep -q "$MCP_NAME"; then
+    if "$CLAUDE_BIN" mcp list 2>/dev/null | grep -q "$MCP_NAME"; then
         ok "Lightup MCP server is registered."
     else
         warn "Could not verify registration. Run 'claude mcp list' manually."
