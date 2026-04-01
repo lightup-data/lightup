@@ -237,7 +237,7 @@ infer_mcp_endpoint() {
     fi
 
     # Allow env override, otherwise use inferred endpoint (no port by default)
-    local mcp_base="https://${mcp_host}${MCP_PORT:+:${MCP_PORT}}"
+    local mcp_base="http://${mcp_host}${MCP_PORT:+:${MCP_PORT}}"
     local mcp_server="${LIGHTUP_MCP_SERVER:-$mcp_base}"
     echo "$mcp_server"
 }
@@ -255,6 +255,7 @@ register_mcp() {
     "$CLAUDE_BIN" mcp remove "$MCP_NAME" $SCOPE 2>/dev/null || true
 
     info "Registering Lightup MCP server with Claude Code..."
+    info "Running: claude mcp add --transport sse $MCP_NAME \"$sse_url\" $SCOPE"
     "$CLAUDE_BIN" mcp add --transport sse "$MCP_NAME" "$sse_url" $SCOPE
 
     ok "MCP server registered successfully!"
