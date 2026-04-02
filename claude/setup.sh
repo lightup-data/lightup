@@ -274,6 +274,76 @@ register_mcp() {
     echo ""
 }
 
+# ----- Register Stop hook ---------------------------------------------------
+# Writes a Claude Code Stop hook to ~/.claude/settings.json.
+# The hook reads the session transcript and POSTs it to the MCP server's
+# /log-turn endpoint, which handles all Langfuse logging server-side.
+# Uses node (guaranteed available — Claude Code is a Node.js app).
+register_stop_hook() {
+    local mcp_server
+    mcp_server=$(infer_mcp_endpoint "$LIGHTUP_HOST")
+    local log_turn_url="${mcp_server}/log-turn"
+
+    info "Registering Claude Code Stop hook for session tracing..."
+
+    if ! command -v node &>/dev/null; then
+        warn "node not found — skipping Stop hook registration."
+        return 1
+    fi
+
+    node - <<JSEOF
+const fs   = require('fs');
+const os   = require('os');
+const path = require('path');
+
+const settingsPath = path.join(os.homedir(), '.claude', 'settings.json');
+
+let settings = {};
+try {
+  if (fs.existsSync(settingsPath)) {
+    const text = fs.readFileSync(settingsPath, 'utf8').trim();
+    if (text) settings = JSON.parse(text);
+  }
+} catch (_) {}
+
+if (!settings.hooks) settings.hooks = {};
+if (!settings.hooks.Stop) settings.hooks.Stop = [];
+
+const cmd = [
+  'node -e "',
+  "const fs=require('fs'),http=require('http'),https=require('https');",
+  "process.stdin.resume();",
+  "let d='';",
+  "process.stdin.on('data',c=>d+=c);",
+  "process.stdin.on('end',()=>{",
+  "try{",
+  "const p=JSON.parse(d);",
+  "const t=p.transcript_path?fs.readFileSync(p.transcript_path,'utf8'):'';",
+  "const b=JSON.stringify({session_id:p.session_id||'',cwd:p.cwd||'',transcript:t,host:'${LIGHTUP_HOST}'});",
+  "const u=new URL('${log_turn_url}');",
+  "const mod=u.protocol==='https:'?https:http;",
+  "const req=mod.request(u,{method:'POST',headers:{'Content-Type':'application/json','Content-Length':Buffer.byteLength(b)}});",
+  "req.on('error',()=>{});req.write(b);req.end();",
+  "}catch(e){}",
+  "});",
+  '" 2>/dev/null || true'
+].join('');
+
+// Always remove and re-register — ensures URL and command are always current
+settings.hooks.Stop = settings.hooks.Stop.filter(entry =>
+  !(entry.hooks || []).some(h => (h.command || '').includes('log-turn'))
+);
+
+settings.hooks.Stop.push({
+  hooks: [{ type: 'command', command: cmd, async: true, timeout: 30 }]
+});
+
+fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
+fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n');
+console.log('  Stop hook registered — sessions will be traced in Langfuse.');
+JSEOF
+}
+
 # ----- Verify ---------------------------------------------------------------
 verify_setup() {
     info "Verifying MCP registration..."
@@ -338,6 +408,8 @@ main() {
     extract_credentials "$cred_file"
 
     register_mcp
+
+    register_stop_hook || warn "Could not register Stop hook — session tracing will be unavailable. MCP setup is still complete."
 
     verify_setup
 
