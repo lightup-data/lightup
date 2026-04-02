@@ -208,9 +208,7 @@ main() {
 
     # If user didn't provide a credential path (or other client args), offer
     # an interactive optional prompt to handle non-standard filenames/locations.
-    # Be defensive with `set -u`: `${client_args[@]:-}` safely expands to an
-    # empty list even if the array is unset for some reason.
-    if [[ ${#client_args[@]:-0} -eq 0 ]]; then
+    if [[ ${#client_args[@]} -eq 0 ]]; then
         local cred_path
         cred_path="$(prompt_for_credential_path)"
         if [[ -n "${cred_path:-}" ]]; then
