@@ -11,16 +11,16 @@ command -v claude >/dev/null || npm install -g @anthropic-ai/claude-code
 # 2. Authenticate if you are not already signed in
 claude auth login
 
-# 3. Run the setup script with your Lightup credential file
+# 3. Run the setup script
 curl -sL https://raw.githubusercontent.com/lightup-data/lightup/main/claude/setup.sh \
-  | bash -s -- ~/Downloads/lightup-api-credential.json
+  | bash
 
 # 4. Start using it
 claude
 > list workspaces
 ```
 
-That's it. The script reads your credential file, infers the MCP endpoint, and registers everything with Claude Code.
+That's it. The script looks for `lightup-api-credential*.json` in common locations such as `~/Downloads`, reads the credential file, infers the MCP endpoint, and registers everything with Claude Code.
 
 ---
 
@@ -139,17 +139,23 @@ API Reference: [docs.lightup.ai/reference/post_api-v1-token-refresh](https://doc
 
 ### 3.1 One-Line Setup (Recommended)
 
-Download and run the setup script. It reads your credential file, infers the correct MCP endpoint from your hostname (`app.X.lightup.ai` → `mcp.X.lightup.ai`), and registers everything with Claude Code automatically.
+Download and run the setup script. It automatically looks for `lightup-api-credential*.json` in common locations such as `~/Downloads`, infers the correct MCP endpoint from your hostname (`app.X.lightup.ai` → `mcp.X.lightup.ai`), and registers everything with Claude Code automatically.
 
 ```bash
 curl -sL https://raw.githubusercontent.com/lightup-data/lightup/main/claude/setup.sh \
-  | bash -s -- ~/Downloads/lightup-api-credential.json
+  | bash
 ```
 
 Or if you already have the script locally:
 
 ```bash
 chmod +x claude/setup.sh
+./claude/setup.sh
+```
+
+If you prefer to be explicit, you can still pass the credential path as an argument:
+
+```bash
 ./claude/setup.sh ~/Downloads/lightup-api-credential.json
 ```
 

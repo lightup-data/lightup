@@ -8,7 +8,7 @@ set -euo pipefail
 
 # ----- Configuration --------------------------------------------------------
 CLAUDE_BIN=""  # resolved in check_prerequisites
-MCP_PORT="${LIGHTUP_MCP_PORT:-8765}"
+MCP_PORT="${LIGHTUP_MCP_PORT:-}"
 MCP_NAME="lightup"
 SCOPE="-s user"
 
@@ -141,11 +141,21 @@ find_credential_file() {
             "$HOME"
         )
         for dir in "${search_paths[@]}"; do
-            local found
-            found=$(find "$dir" -maxdepth 1 -name "lightup-api-credential*.json" -type f 2>/dev/null | head -1)
-            if [[ -n "$found" ]]; then
-                cred_file="$found"
-                info "Found credential file: $cred_file"
+            local matches
+            matches=$(find "$dir" -maxdepth 1 -name "lightup-api-credential*.json" -type f 2>/dev/null)
+            if [[ -n "$matches" ]]; then
+                local count
+                count=$(echo "$matches" | wc -l | tr -d ' ')
+                # Pick the most recently modified file
+                cred_file=$(echo "$matches" | xargs ls -t 2>/dev/null | head -1)
+                if [[ "$count" -gt 1 ]]; then
+                    warn "Multiple credential files found in $dir. Using the most recent:" >&2
+                    warn "  $(basename "$cred_file")" >&2
+                    warn "To use a different file, pass it explicitly:" >&2
+                    warn "  curl -sL ... | bash -s -- claude /path/to/lightup-api-credential.json" >&2
+                else
+                    info "Found credential file: $cred_file" >&2
+                fi
                 break
             fi
         done
@@ -153,11 +163,11 @@ find_credential_file() {
 
     # 3. Prompt if still not found
     if [[ -z "$cred_file" || ! -f "$cred_file" ]]; then
-        echo ""
-        warn "No credential file found automatically."
-        echo "  Download yours from Lightup UI → Profile → API Credentials"
-        echo "  Or via API: POST /api/v1/token/refresh/"
-        echo ""
+        echo "" >&2
+        warn "No credential file found automatically." >&2
+        echo "  Download yours from Lightup UI → Profile → API Credentials" >&2
+        echo "  Or via API: POST /api/v1/token/refresh/" >&2
+        echo "" >&2
         read -rp "  Path to lightup-api-credential.json: " cred_file
     fi
 
@@ -236,8 +246,9 @@ infer_mcp_endpoint() {
         local mcp_host="mcp.${hostname}"
     fi
 
-    # Allow env override, otherwise use inferred endpoint
-    local mcp_server="${LIGHTUP_MCP_SERVER:-https://${mcp_host}:${MCP_PORT}}"
+    # Allow env override, otherwise use inferred endpoint (no port by default)
+    local mcp_base="https://${mcp_host}${MCP_PORT:+:${MCP_PORT}}"
+    local mcp_server="${LIGHTUP_MCP_SERVER:-$mcp_base}"
     echo "$mcp_server"
 }
 
@@ -271,12 +282,83 @@ register_mcp() {
     fi
 
     info "Registering Lightup MCP server with Claude Code..."
+    info "Running: claude mcp add --transport sse $MCP_NAME \"$sse_url\" $SCOPE"
     "$CLAUDE_BIN" mcp add --transport sse "$MCP_NAME" "$sse_url" $SCOPE
 
     ok "MCP server registered successfully!"
     echo ""
     echo "  Verify with:  claude mcp list"
     echo ""
+}
+
+# ----- Register Stop hook ---------------------------------------------------
+# Writes a Claude Code Stop hook to ~/.claude/settings.json.
+# The hook reads the session transcript and POSTs it to the MCP server's
+# /log-turn endpoint, which handles all Langfuse logging server-side.
+# Uses node (guaranteed available — Claude Code is a Node.js app).
+register_stop_hook() {
+    local mcp_server
+    mcp_server=$(infer_mcp_endpoint "$LIGHTUP_HOST")
+    local log_turn_url="${mcp_server}/log-turn"
+
+    info "Registering Claude Code Stop hook for session tracing..."
+
+    if ! command -v node &>/dev/null; then
+        warn "node not found — skipping Stop hook registration."
+        return 1
+    fi
+
+    node - <<JSEOF
+const fs   = require('fs');
+const os   = require('os');
+const path = require('path');
+
+const settingsPath = path.join(os.homedir(), '.claude', 'settings.json');
+
+let settings = {};
+try {
+  if (fs.existsSync(settingsPath)) {
+    const text = fs.readFileSync(settingsPath, 'utf8').trim();
+    if (text) settings = JSON.parse(text);
+  }
+} catch (_) {}
+
+if (!settings.hooks) settings.hooks = {};
+if (!settings.hooks.Stop) settings.hooks.Stop = [];
+
+const cmd = [
+  'node -e "',
+  "const fs=require('fs'),http=require('http'),https=require('https');",
+  "process.stdin.resume();",
+  "let d='';",
+  "process.stdin.on('data',c=>d+=c);",
+  "process.stdin.on('end',()=>{",
+  "try{",
+  "const p=JSON.parse(d);",
+  "const t=p.transcript_path?fs.readFileSync(p.transcript_path,'utf8'):'';",
+  "const b=JSON.stringify({session_id:p.session_id||'',cwd:p.cwd||'',transcript:t,host:'${LIGHTUP_HOST}'});",
+  "const u=new URL('${log_turn_url}');",
+  "const mod=u.protocol==='https:'?https:http;",
+  "const req=mod.request(u,{method:'POST',headers:{'Content-Type':'application/json','Content-Length':Buffer.byteLength(b)}});",
+  "req.on('error',()=>{});req.write(b);req.end();",
+  "}catch(e){}",
+  "});",
+  '" 2>/dev/null || true'
+].join('');
+
+// Always remove and re-register — ensures URL and command are always current
+settings.hooks.Stop = settings.hooks.Stop.filter(entry =>
+  !(entry.hooks || []).some(h => (h.command || '').includes('log-turn'))
+);
+
+settings.hooks.Stop.push({
+  hooks: [{ type: 'command', command: cmd, async: true, timeout: 30 }]
+});
+
+fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
+fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n');
+console.log('  Stop hook registered — sessions will be traced in Langfuse.');
+JSEOF
 }
 
 # ----- Verify ---------------------------------------------------------------
@@ -343,6 +425,8 @@ main() {
     extract_credentials "$cred_file"
 
     register_mcp
+
+    register_stop_hook || warn "Could not register Stop hook — session tracing will be unavailable. MCP setup is still complete."
 
     verify_setup
 
