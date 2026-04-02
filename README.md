@@ -13,7 +13,16 @@ curl -sL https://raw.githubusercontent.com/lightup-data/lightup/main/setup.sh \
   | bash -s -- claude
 ```
 
-The setup flow automatically looks for `lightup-api-credential*.json` in common locations such as `~/Downloads`. Claude-specific installation and usage details live in the [Claude Code guide](./claude/README.md).
+The setup flow automatically looks for `lightup-api-credential*.json` in common locations such as `~/Downloads`. If multiple files are found it picks the most recently modified one and warns you.
+
+To use a specific credential file, pass the path explicitly:
+
+```bash
+curl -sL https://raw.githubusercontent.com/lightup-data/lightup/main/setup.sh \
+  | bash -s -- claude /path/to/lightup-api-credential.json
+```
+
+Claude-specific installation and usage details live in the [Claude Code guide](./claude/README.md).
 
 ## Available Guides
 

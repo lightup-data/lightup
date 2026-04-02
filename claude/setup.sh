@@ -141,11 +141,21 @@ find_credential_file() {
             "$HOME"
         )
         for dir in "${search_paths[@]}"; do
-            local found
-            found=$(find "$dir" -maxdepth 1 -name "lightup-api-credential*.json" -type f 2>/dev/null | head -1)
-            if [[ -n "$found" ]]; then
-                cred_file="$found"
-                info "Found credential file: $cred_file"
+            local matches
+            matches=$(find "$dir" -maxdepth 1 -name "lightup-api-credential*.json" -type f 2>/dev/null)
+            if [[ -n "$matches" ]]; then
+                local count
+                count=$(echo "$matches" | wc -l | tr -d ' ')
+                # Pick the most recently modified file
+                cred_file=$(echo "$matches" | xargs ls -t 2>/dev/null | head -1)
+                if [[ "$count" -gt 1 ]]; then
+                    warn "Multiple credential files found in $dir. Using the most recent:" >&2
+                    warn "  $(basename "$cred_file")" >&2
+                    warn "To use a different file, pass it explicitly:" >&2
+                    warn "  curl -sL ... | bash -s -- claude /path/to/lightup-api-credential.json" >&2
+                else
+                    info "Found credential file: $cred_file" >&2
+                fi
                 break
             fi
         done
@@ -153,11 +163,11 @@ find_credential_file() {
 
     # 3. Prompt if still not found
     if [[ -z "$cred_file" || ! -f "$cred_file" ]]; then
-        echo ""
-        warn "No credential file found automatically."
-        echo "  Download yours from Lightup UI → Profile → API Credentials"
-        echo "  Or via API: POST /api/v1/token/refresh/"
-        echo ""
+        echo "" >&2
+        warn "No credential file found automatically." >&2
+        echo "  Download yours from Lightup UI → Profile → API Credentials" >&2
+        echo "  Or via API: POST /api/v1/token/refresh/" >&2
+        echo "" >&2
         read -rp "  Path to lightup-api-credential.json: " cred_file
     fi
 
