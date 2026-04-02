@@ -27,12 +27,13 @@ usage() {
 Lightup setup
 
 Usage:
+  ./setup.sh <client> [credential_json_path]
   ./setup.sh <client> [client args...]
   ./setup.sh
 
 Supported clients:
   claude       Configure Lightup for Claude Code
-  gemini-cli   Reserved for future support
+  gemini-cli   Configure Lightup for Gemini CLI
   codex-cli    Reserved for future support
 
 Examples:
@@ -63,10 +64,14 @@ prompt_for_client() {
     local choice=""
 
     echo "" >&2
-    echo "Select a Lightup client to configure:" >&2
+    echo "Select an AI client to configure with Lightup:" >&2
+    echo "" >&2
     echo "  1) Claude Code" >&2
-    echo "  2) Gemini CLI (coming soon)" >&2
+    echo "  2) Gemini CLI" >&2
     echo "  3) Codex CLI (coming soon)" >&2
+    echo "" >&2
+    echo "Make sure you have your lightup-api-credential.json file ready." >&2
+    echo "Download it from: Lightup UI → Profile → API Credentials" >&2
     echo "" >&2
 
     while true; do
@@ -89,6 +94,31 @@ prompt_for_client() {
                 ;;
         esac
     done
+}
+
+prompt_for_credential_path() {
+    local cred_path=""
+    echo "" >&2
+    echo "Optional: credential JSON path" >&2
+    echo "If your file name/path is non-standard, you can provide it here." >&2
+    echo "Leave empty to let the client setup auto-discover it (or prompt later)." >&2
+
+    read -rp "Path to lightup-api-credential.json (optional): " cred_path
+
+    # Empty -> use default discovery in the client scripts
+    if [[ -z "${cred_path:-}" ]]; then
+        echo ""
+        return 0
+    fi
+
+    if [[ -f "$cred_path" ]]; then
+        echo "$cred_path"
+        return 0
+    fi
+
+    err "Invalid credential path: '$cred_path' (expected an existing file)."
+    err "Re-run setup with the correct path, or leave it empty."
+    return 1
 }
 
 dispatch_client() {
@@ -116,9 +146,29 @@ dispatch_client() {
             fi
             ok "Claude Code setup finished."
             ;;
-        gemini-cli|codex-cli)
+        gemini-cli)
+            local target_script="$ROOT_DIR/gemini-cli/setup.sh"
+            if [[ -n "$ROOT_DIR" && -f "$target_script" ]]; then
+                info "Running Gemini CLI setup..."
+                bash "$target_script" "$@"
+            else
+                # Running via `curl | bash` — download the client script to a temp file.
+                local tmp_script
+                tmp_script="$(mktemp)"
+                trap "rm -f '$tmp_script'" EXIT
+                info "Downloading Gemini CLI setup script..."
+                if ! curl -fsSL "$LIGHTUP_REPO_RAW/gemini-cli/setup.sh" -o "$tmp_script"; then
+                    err "Failed to download Gemini CLI setup script from $LIGHTUP_REPO_RAW"
+                    exit 1
+                fi
+                info "Running Gemini CLI setup..."
+                bash "$tmp_script" "$@"
+            fi
+            ok "Gemini CLI setup finished."
+            ;;
+        codex-cli)
             warn "$client support is not available yet."
-            warn "Use 'claude' today. This wrapper already reserves the future client entry point."
+            warn "Use 'claude' or 'gemini-cli' today. This wrapper already reserves the future client entry point."
             exit 1
             ;;
         *)
@@ -131,6 +181,7 @@ dispatch_client() {
 
 main() {
     local client=""
+    local client_args=()
 
     case "${1:-}" in
         -h|--help)
@@ -143,6 +194,7 @@ main() {
         client="$(normalize_client "${1:-}")"
         if [[ -n "$client" ]]; then
             shift
+            client_args=("$@")
         else
             err "Unknown client: ${1:-}"
             echo ""
@@ -151,9 +203,22 @@ main() {
         fi
     else
         client="$(prompt_for_client)"
+        client_args=()
     fi
 
-    dispatch_client "$client" "$@"
+    # If user didn't provide a credential path (or other client args), offer
+    # an interactive optional prompt to handle non-standard filenames/locations.
+    # Be defensive with `set -u`: `${client_args[@]:-}` safely expands to an
+    # empty list even if the array is unset for some reason.
+    if [[ ${#client_args[@]:-0} -eq 0 ]]; then
+        local cred_path
+        cred_path="$(prompt_for_credential_path)"
+        if [[ -n "${cred_path:-}" ]]; then
+            client_args=("$cred_path")
+        fi
+    fi
+
+    dispatch_client "$client" "${client_args[@]:-}"
 }
 
 main "$@"

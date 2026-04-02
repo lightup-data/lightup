@@ -2,12 +2,12 @@
 # =============================================================================
 # Lightup MCP Setup Script
 # Extracts host and refresh_token from a Lightup API credential JSON file
-# and registers the remote MCP server with Claude Code.
+# and registers the remote MCP server with Gemini CLI.
 # =============================================================================
 set -euo pipefail
 
 # ----- Configuration --------------------------------------------------------
-CLAUDE_BIN=""  # resolved in check_prerequisites
+GEMINI_BIN=""  # resolved in check_prerequisites
 MCP_PORT="${LIGHTUP_MCP_PORT:-8765}"
 MCP_NAME="lightup"
 SCOPE="-s user"
@@ -95,21 +95,16 @@ check_prerequisites() {
         info "jq not found — using python3 as JSON parser"
     fi
 
-    # Check for claude (Claude Code CLI).
-    # `command -v` finds binaries in PATH but not shell aliases, so also check
-    # the default local install path used by the Claude Code installer.
-    if command -v claude &>/dev/null; then
-        CLAUDE_BIN="$(command -v claude)"
-    elif [[ -x "$HOME/.claude/local/claude" ]]; then
-        CLAUDE_BIN="$HOME/.claude/local/claude"
+    # Check for gemini (Gemini CLI).
+    if command -v gemini &>/dev/null; then
+        GEMINI_BIN="$(command -v gemini)"
     else
-        err "Claude Code CLI is not installed."
+        err "Gemini CLI is not installed."
         echo ""
-        echo "  Install Claude Code:"
-        echo "    npm install -g @anthropic-ai/claude-code"
-        echo ""
-        echo "  Then authenticate:"
-        echo "    claude auth login"
+        echo "  Install Gemini CLI:"
+        echo "    npm install -g @google/gemini-cli"
+        echo "    — or —"
+        echo "    See https://github.com/google-gemini/gemini-cli for installation options"
         echo ""
         missing=1
     fi
@@ -120,7 +115,7 @@ check_prerequisites() {
         exit 1
     fi
 
-    ok "Prerequisites satisfied (JSON parser, claude)"
+    ok "Prerequisites satisfied (JSON parser, gemini)"
 }
 
 # ----- Credential file discovery --------------------------------------------
@@ -251,27 +246,27 @@ register_mcp() {
     info "Inferred MCP endpoint: $mcp_server"
 
     info "Removing any existing '$MCP_NAME' MCP registration..."
-    "$CLAUDE_BIN" mcp remove "$MCP_NAME" $SCOPE 2>/dev/null || true
+    "$GEMINI_BIN" mcp remove "$MCP_NAME" $SCOPE 2>/dev/null || true
 
-    info "Registering Lightup MCP server with Claude Code..."
-    "$CLAUDE_BIN" mcp add --transport sse "$MCP_NAME" "$sse_url" $SCOPE
+    info "Registering Lightup MCP server with Gemini CLI..."
+    "$GEMINI_BIN" mcp add --transport sse "$MCP_NAME" "$sse_url" $SCOPE
 
     ok "MCP server registered successfully!"
     echo ""
-    echo "  Verify with:  claude mcp list"
+    echo "  Verify with:  gemini mcp list"
     echo ""
 }
 
 # ----- Verify ---------------------------------------------------------------
 verify_setup() {
     info "Verifying MCP registration..."
-    if ! "$CLAUDE_BIN" mcp list 2>/dev/null | grep -q "$MCP_NAME"; then
-        warn "Could not verify registration. Run 'claude mcp list' manually."
+    if ! "$GEMINI_BIN" mcp list 2>/dev/null | grep -q "$MCP_NAME"; then
+        warn "Could not verify registration. Run 'gemini mcp list' manually."
         return
     fi
     ok "Lightup MCP server is registered."
 
-    # Test the actual SSE endpoint — this is what Claude Code connects to,
+    # Test the actual SSE endpoint — this is what Gemini CLI connects to,
     # so an HTTP error here means the MCP connection will fail in-session too.
     local mcp_server sse_url http_code
     mcp_server=$(infer_mcp_endpoint "$LIGHTUP_HOST")
@@ -314,7 +309,7 @@ verify_setup() {
 main() {
     echo ""
     echo "=========================================="
-    echo "  Lightup MCP Setup for Claude Code"
+    echo "  Lightup MCP Setup for Gemini CLI"
     echo "=========================================="
     echo ""
 
@@ -330,9 +325,9 @@ main() {
     verify_setup
 
     echo ""
-    ok "Setup complete! Start a new Claude Code session and try:"
+    ok "Setup complete! Start a new Gemini CLI session and try:"
     echo ""
-    echo "    claude"
+    echo "    gemini"
     echo "    > list workspaces"
     echo ""
 }
