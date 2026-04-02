@@ -10,15 +10,29 @@ Use the repo-level setup wrapper and pass the client you want to configure:
 
 ```bash
 curl -sL https://raw.githubusercontent.com/lightup-data/lightup/main/setup.sh \
-  | bash -s -- claude ~/Downloads/lightup-api-credential.json
+  | bash -s -- claude
 ```
 
-Claude-specific installation and usage details live in the [Claude Code guide](./claude/README.md).
+```bash
+curl -sL https://raw.githubusercontent.com/lightup-data/lightup/main/setup.sh \
+  | bash -s -- gemini
+```
+
+The setup flow automatically looks for `lightup-api-credential*.json` in common locations such as `~/Downloads`. If multiple files are found it picks the most recently modified one and warns you.
+
+To use a specific credential file, pass the path explicitly:
+
+```bash
+curl -sL https://raw.githubusercontent.com/lightup-data/lightup/main/setup.sh \
+  | bash -s -- claude /path/to/lightup-api-credential.json
+```
+
+Client-specific installation and usage details live in the dedicated guides below.
 
 ## Available Guides
 
 - [Claude Code](./claude/README.md)
-- <sub>Gemini CLI (coming soon)</sub>
+- [Gemini CLI](./gemini-cli/README.md)
 - <sub>Codex CLI (coming soon)</sub>
 
 ## Why This Repo Exists
@@ -28,14 +42,14 @@ Lightup helps teams bring trusted data quality context into the tools they alrea
 ## Current Support
 
 - Claude Code: available now
-- Gemini CLI: coming soon
+- Gemini CLI: available now
 - Codex CLI: coming soon
 
 ## Setup Model
 
 Each client guide is responsible for its own installation and connection flow. That keeps the top-level repository product-oriented, while letting each integration evolve independently.
 
-If you want to get started today, use the [Claude Code guide](./claude/README.md).
+Pick the guide for your preferred AI client to get started.
 
 ---
 
