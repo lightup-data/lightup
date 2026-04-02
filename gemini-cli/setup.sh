@@ -261,7 +261,7 @@ register_mcp() {
 # ----- Verify ---------------------------------------------------------------
 verify_setup() {
     info "Verifying MCP registration..."
-    if ! "$GEMINI_BIN" mcp list 2>/dev/null | grep -q "$MCP_NAME"; then
+    if ! "$GEMINI_BIN" mcp list 2>&1 | grep -q "$MCP_NAME"; then
         warn "Could not verify registration. Run 'gemini mcp list' manually."
         return
     fi
