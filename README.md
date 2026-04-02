@@ -11,18 +11,6 @@ Use the repo-level setup wrapper and pass the client you want to configure:
 ```bash
 curl -sL https://raw.githubusercontent.com/lightup-data/lightup/main/setup.sh \
   | bash -s -- claude
-<<<<<<< girish/gemini-cli
-=======
-```
-
-The setup flow automatically looks for `lightup-api-credential*.json` in common locations such as `~/Downloads`. If multiple files are found it picks the most recently modified one and warns you.
-
-To use a specific credential file, pass the path explicitly:
-
-```bash
-curl -sL https://raw.githubusercontent.com/lightup-data/lightup/main/setup.sh \
-  | bash -s -- claude /path/to/lightup-api-credential.json
->>>>>>> main
 ```
 
 ```bash
