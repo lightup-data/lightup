@@ -261,25 +261,8 @@ register_mcp() {
 
     info "Inferred MCP endpoint: $mcp_server"
 
-    # Check if the MCP server is already registered with the same URL by
-    # reading the config file directly (claude mcp list mangles the scheme).
-    local config_file="$HOME/.claude.json"
-    local existing_url=""
-    if [[ -f "$config_file" ]]; then
-        existing_url=$(json_read "$config_file" ".mcpServers.${MCP_NAME}.url // empty" 2>/dev/null || true)
-    fi
-
-    if [[ "$existing_url" == "$sse_url" ]]; then
-        ok "Lightup MCP server is already registered with the correct URL — skipping."
-        echo ""
-        return
-    fi
-
-    # Remove stale registration (different URL or missing) before re-adding.
-    if [[ -n "$existing_url" ]]; then
-        info "Updating existing '$MCP_NAME' MCP registration (URL changed)..."
-        "$CLAUDE_BIN" mcp remove "$MCP_NAME" $SCOPE 2>/dev/null || true
-    fi
+    info "Removing any existing '$MCP_NAME' MCP registration..."
+    "$CLAUDE_BIN" mcp remove "$MCP_NAME" $SCOPE 2>/dev/null || true
 
     info "Registering Lightup MCP server with Claude Code..."
     info "Running: claude mcp add --transport sse $MCP_NAME \"$sse_url\" $SCOPE"
