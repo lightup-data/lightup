@@ -28,7 +28,7 @@ That's it. The script looks for `lightup-api-credential*.json` in common locatio
 
 | Requirement | How to get it |
 |---|---|
-| Node.js 18+ | [nodejs.org](https://nodejs.org) |
+| Node.js 18+ | [nodejs.org](https://nodejs.org) — required by Claude Code and used by the session tracing hook |
 | Lightup account | Contact your Lightup admin |
 | API credential file | Lightup UI → Profile → API Credentials |
 
@@ -166,6 +166,7 @@ The script performs these steps:
 - Infers the MCP endpoint (`app.X.lightup.ai` → `mcp.X.lightup.ai`)
 - Removes any previous Lightup MCP registration
 - Registers the remote MCP server with Claude Code
+- Writes `~/.lightup/log_turn_hook.js` and registers it as a Claude Code Stop hook for session tracing
 - Verifies the registration was successful
 
 ### 3.2 Manual Setup
