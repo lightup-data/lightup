@@ -178,7 +178,7 @@ find_credential_file() {
             case "$choice" in
                 1)
                     echo "" >&2
-                    echo "  Log in and go to:" >&2
+                    echo "  Log in to Lightup and go to:" >&2
                     echo "  Profile → API Credentials → Generate API Credentials → Download" >&2
                     echo "" >&2
                     read -rp "  Path to lightup-api-credential.json (once downloaded): " cred_file

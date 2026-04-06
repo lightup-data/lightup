@@ -146,14 +146,54 @@ find_credential_file() {
         done
     fi
 
-    # 3. Prompt if still not found
+    # 3. No file found — offer login or trial
     if [[ -z "$cred_file" || ! -f "$cred_file" ]]; then
-        echo ""
+        echo "" >&2
         warn "No credential file found automatically."
-        echo "  Download yours from Lightup UI → Profile → API Credentials"
-        echo "  Or via API: POST /api/v1/token/refresh/"
-        echo ""
-        read -rp "  Path to lightup-api-credential.json: " cred_file
+        echo "" >&2
+        echo "  Do you have a Lightup account?" >&2
+        echo "" >&2
+        echo "    1) Yes — log in and download my credentials" >&2
+        echo "    2) No  — sign up for a 30-day free trial" >&2
+        echo "" >&2
+
+        local choice
+        while true; do
+            read -rp "  Choice [1/2]: " choice
+            case "$choice" in
+                1)
+                    echo "" >&2
+                    echo "  Log in to Lightup and go to:" >&2
+                    echo "  Profile → API Credentials → Generate API Credentials → Download" >&2
+                    echo "" >&2
+                    read -rp "  Path to lightup-api-credential.json (once downloaded): " cred_file
+                    break
+                    ;;
+                2)
+                    echo "" >&2
+                    info "Opening Lightup in your browser..."
+                    if command -v open &>/dev/null; then
+                        open "https://my.lightup.ai/" 2>/dev/null || true
+                    elif command -v xdg-open &>/dev/null; then
+                        xdg-open "https://my.lightup.ai/" 2>/dev/null || true
+                    fi
+                    echo "" >&2
+                    echo "  Follow these steps in the browser:" >&2
+                    echo "  1. Select \"Sign Up\" and enter your email and password." >&2
+                    echo "  2. Check your inbox, verify your email, enter your first and last name, then click \"Start Trial\"." >&2
+                    echo "  3. You'll be redirected to https://my.lightup.ai — click \"Enter Lightup Cloud Free Trial\"." >&2
+                    echo "  4. Go to Profile → API Credentials → Generate API Credentials → Download." >&2
+                    echo "" >&2
+                    echo "  Come back here once you have the file." >&2
+                    echo "" >&2
+                    read -rp "  Path to lightup-api-credential.json (once downloaded): " cred_file
+                    break
+                    ;;
+                *)
+                    warn "Please enter 1 or 2." >&2
+                    ;;
+            esac
+        done
     fi
 
     if [[ ! -f "$cred_file" ]]; then
