@@ -11,6 +11,8 @@ CLAUDE_BIN=""  # resolved in check_prerequisites
 MCP_PORT="${LIGHTUP_MCP_PORT:-}"
 MCP_NAME="lightup"
 SCOPE="-s user"
+VERBOSE=0
+CRED_FILE_ARG=""
 
 # ----- Colors ---------------------------------------------------------------
 RED='\033[0;31m'
@@ -23,6 +25,70 @@ info()  { echo -e "${CYAN}[INFO]${NC}  $*" >&2; }
 ok()    { echo -e "${GREEN}[OK]${NC}    $*" >&2; }
 warn()  { echo -e "${YELLOW}[WARN]${NC}  $*" >&2; }
 err()   { echo -e "${RED}[ERROR]${NC} $*" >&2; }
+debug() {
+    if [[ "$VERBOSE" -eq 1 ]]; then
+        echo -e "${YELLOW}[DEBUG]${NC} $*" >&2
+    fi
+}
+
+mask_token() {
+    local token="${1:-}"
+    if [[ -z "$token" ]]; then
+        echo ""
+    elif [[ ${#token} -le 10 ]]; then
+        echo "****"
+    else
+        echo "${token:0:6}...${token: -4}"
+    fi
+}
+
+mask_sse_url() {
+    local url="${1:-}"
+    if [[ -z "$url" ]]; then
+        echo ""
+        return 0
+    fi
+    echo "$url" | sed -E 's/(refresh_token=)[^&]+/\1***REDACTED***/'
+}
+
+usage() {
+    cat <<'EOF'
+Lightup MCP setup for Claude Code
+
+Usage:
+  ./setup.sh [credential_json_path] [--verbose|-v]
+  ./setup.sh [--verbose|-v] [credential_json_path]
+  ./setup.sh --help|-h
+EOF
+}
+
+parse_args() {
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -v|--verbose)
+                VERBOSE=1
+                ;;
+            -h|--help)
+                usage
+                exit 0
+                ;;
+            -*)
+                err "Unknown option: $1"
+                usage
+                exit 1
+                ;;
+            *)
+                if [[ -n "$CRED_FILE_ARG" ]]; then
+                    err "Only one credential path is supported. Got extra argument: $1"
+                    usage
+                    exit 1
+                fi
+                CRED_FILE_ARG="$1"
+                ;;
+        esac
+        shift
+    done
+}
 
 # ----- JSON parser ----------------------------------------------------------
 # Uses jq if available, falls back to python3 (no extra dependencies).
@@ -121,6 +187,12 @@ check_prerequisites() {
     fi
 
     ok "Prerequisites satisfied (JSON parser, claude)"
+    debug "Claude binary resolved to: $CLAUDE_BIN"
+    if [[ "$VERBOSE" -eq 1 ]]; then
+        local claude_version
+        claude_version=$("$CLAUDE_BIN" --version 2>/dev/null || echo "unknown")
+        debug "Claude version: $claude_version"
+    fi
 }
 
 # ----- Credential file discovery --------------------------------------------
@@ -130,6 +202,7 @@ find_credential_file() {
     # 1. Passed as argument
     if [[ $# -ge 1 && -n "${1:-}" ]]; then
         cred_file="$1"
+        debug "Using credential file argument: $cred_file"
     fi
 
     # 2. Look in common locations
@@ -141,6 +214,7 @@ find_credential_file() {
             "$HOME"
         )
         for dir in "${search_paths[@]}"; do
+            debug "Searching for credential file in: $dir"
             local matches
             matches=$(find "$dir" -maxdepth 1 -name "lightup-api-credential*.json" -type f 2>/dev/null)
             if [[ -n "$matches" ]]; then
@@ -258,14 +332,18 @@ register_mcp() {
     mcp_server=$(infer_mcp_endpoint "$LIGHTUP_HOST")
 
     local sse_url="${mcp_server}/sse?host=${LIGHTUP_HOST}&refresh_token=${LIGHTUP_REFRESH_TOKEN}"
+    local masked_sse_url
+    masked_sse_url=$(mask_sse_url "$sse_url")
 
     info "Inferred MCP endpoint: $mcp_server"
+    debug "MCP SSE URL (redacted): $masked_sse_url"
 
     info "Removing any existing '$MCP_NAME' MCP registration..."
+    debug "Running: $CLAUDE_BIN mcp remove $MCP_NAME $SCOPE"
     "$CLAUDE_BIN" mcp remove "$MCP_NAME" $SCOPE 2>/dev/null || true
 
     info "Registering Lightup MCP server with Claude Code..."
-    info "Running: claude mcp add --transport sse $MCP_NAME \"$sse_url\" $SCOPE"
+    debug "Running: $CLAUDE_BIN mcp add --transport sse $MCP_NAME <redacted-url> $SCOPE"
     "$CLAUDE_BIN" mcp add --transport sse "$MCP_NAME" "$sse_url" $SCOPE
 
     ok "MCP server registered successfully!"
@@ -410,9 +488,11 @@ verify_setup() {
     local mcp_server sse_url http_code
     mcp_server=$(infer_mcp_endpoint "$LIGHTUP_HOST")
     sse_url="${mcp_server}/sse?host=${LIGHTUP_HOST}&refresh_token=${LIGHTUP_REFRESH_TOKEN}"
+    debug "Verifying SSE URL (redacted): $(mask_sse_url "$sse_url")"
 
     info "Testing MCP SSE endpoint..."
     http_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$sse_url" 2>/dev/null) || true
+    debug "SSE check HTTP status: $http_code"
 
     case "$http_code" in
         200)
@@ -446,6 +526,8 @@ verify_setup() {
 
 # ----- Main -----------------------------------------------------------------
 main() {
+    parse_args "$@"
+
     echo ""
     echo "=========================================="
     echo "  Lightup MCP Setup for Claude Code"
@@ -455,9 +537,11 @@ main() {
     check_prerequisites
 
     local cred_file
-    cred_file=$(find_credential_file "${1:-}")
+    cred_file=$(find_credential_file "$CRED_FILE_ARG")
+    debug "Credential file selected: $cred_file"
 
     extract_credentials "$cred_file"
+    debug "Token fingerprint: $(mask_token "$LIGHTUP_REFRESH_TOKEN")"
 
     register_mcp
 
