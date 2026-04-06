@@ -143,7 +143,7 @@ dispatch_client() {
                     exit 1
                 fi
                 info "Running Claude Code setup..."
-                bash "$tmp_script" "$@"
+                bash "$tmp_script" "$@" </dev/tty
             fi
             ok "Claude Code setup finished."
             ;;
@@ -163,7 +163,7 @@ dispatch_client() {
                     exit 1
                 fi
                 info "Running Gemini CLI setup..."
-                bash "$tmp_script" "$@"
+                bash "$tmp_script" "$@" </dev/tty
             fi
             ok "Gemini CLI setup finished."
             ;;
