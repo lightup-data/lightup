@@ -171,11 +171,31 @@ find_credential_file() {
                     ;;
                 2)
                     echo "" >&2
-                    info "Opening Lightup in your browser..."
+                    local _url="https://my.lightup.ai/"
+                    local _opened=false
                     if command -v open &>/dev/null; then
-                        open "https://my.lightup.ai/" 2>/dev/null || true
+                        open "$_url" 2>/dev/null || true
+                        _opened=true
                     elif command -v xdg-open &>/dev/null; then
-                        xdg-open "https://my.lightup.ai/" 2>/dev/null || true
+                        xdg-open "$_url" 2>/dev/null || true
+                        _opened=true
+                    elif command -v start &>/dev/null; then
+                        start "$_url" 2>/dev/null || true
+                        _opened=true
+                    else
+                        for _browser in firefox google-chrome chromium chromium-browser microsoft-edge brave-browser; do
+                            if command -v "$_browser" &>/dev/null; then
+                                "$_browser" "$_url" &>/dev/null &
+                                _opened=true
+                                break
+                            fi
+                        done
+                    fi
+                    if [[ "$_opened" == true ]]; then
+                        info "Opening Lightup in your browser..."
+                    else
+                        echo "  Could not detect a browser. Open this URL manually:" >&2
+                        echo "  $_url" >&2
                     fi
                     echo "" >&2
                     echo "  Follow these steps in the browser:" >&2
