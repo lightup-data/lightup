@@ -6,18 +6,36 @@ Connect your [Lightup](https://lightup.ai) data quality platform to [Gemini CLI]
 
 ```bash
 # 1. Install Gemini CLI only if it is not already installed
-command -v gemini >/dev/null || npm install -g @anthropic-ai/gemini-cli
+command -v gemini >/dev/null || npm install -g @google-gemini/gemini-cli
 
-# 2. Run the setup script with your Lightup credential file
+# 2. Run the setup script
 curl -sL https://raw.githubusercontent.com/lightup-data/lightup/main/gemini-cli/setup.sh \
-  | bash -s -- ~/Downloads/lightup-api-credential.json
+  | bash
 
 # 3. Start using it
 gemini
 > list workspaces
 ```
 
-That's it. The script reads your credential file, infers the MCP endpoint, and registers everything with Gemini CLI.
+That's it. The script looks for `lightup-api-credential*.json` in common locations such as `~/Downloads`, reads the credential file, infers the MCP endpoint, and registers everything with Gemini CLI.
+
+If no credential file is found, the script will prompt you:
+
+```
+Do you have a Lightup account?
+
+  1) Yes — log in and download my credentials
+  2) No  — sign up for a 30-day free trial
+```
+
+Choose **1** if you already have a Lightup account — the script will guide you to download your credentials. Choose **2** if you're new to Lightup — the script opens [my.lightup.ai](https://my.lightup.ai) in your browser and walks you through the trial signup steps.
+
+If you prefer to pass the credential file explicitly:
+
+```bash
+curl -sL https://raw.githubusercontent.com/lightup-data/lightup/main/gemini-cli/setup.sh \
+  | bash -s -- ~/Downloads/lightup-api-credential.json
+```
 
 ---
 
@@ -26,8 +44,8 @@ That's it. The script reads your credential file, infers the MCP endpoint, and r
 | Requirement | How to get it |
 |---|---|
 | Node.js 18+ | [nodejs.org](https://nodejs.org) |
-| Lightup account | Contact your Lightup admin |
-| API credential file | Lightup UI → Profile → API Credentials |
+| Lightup account | Contact your Lightup admin, or sign up for a [30-day free trial](https://my.lightup.ai) |
+| API credential file | Lightup UI → Profile → API Credentials (setup will guide you if you don't have one yet) |
 
 ---
 
@@ -48,7 +66,7 @@ If that returns a version number, Gemini CLI is already installed and you can sk
 If the command is not found, install it with npm:
 
 ```bash
-npm install -g @anthropic-ai/gemini-cli
+npm install -g @google-gemini/gemini-cli
 ```
 
 Or see [github.com/google-gemini/gemini-cli](https://github.com/google-gemini/gemini-cli) for alternative installation options.
@@ -83,12 +101,14 @@ gemini
 
 ## 2. Download Your Lightup API Credential
 
+> **No Lightup account yet?** Run the setup script and choose option **2** when prompted — it will open [my.lightup.ai](https://my.lightup.ai) and walk you through signing up for a 30-day free trial. Once your account is ready, continue from step 4 below to download your credential file.
+
 ### 2.1 From the Lightup UI (Recommended)
 
 1. Log in to your Lightup instance (e.g., `https://app.<your-environment>.lightup.ai`)
 2. Click your profile icon in the top-right corner
 3. Select **API Credentials** from the dropdown menu
-4. Click **Create New Credential** or download an existing one
+4. Click **Generate API Credentials** and then **Download**
 5. Save the file as `lightup-api-credential.json` in your Downloads folder
 
 The credential file looks like this:

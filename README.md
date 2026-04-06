@@ -18,7 +18,7 @@ curl -sL https://raw.githubusercontent.com/lightup-data/lightup/main/setup.sh \
   | bash -s -- gemini
 ```
 
-The setup flow automatically looks for `lightup-api-credential*.json` in common locations such as `~/Downloads`. If multiple files are found it picks the most recently modified one and warns you.
+The setup flow automatically looks for `lightup-api-credential*.json` in common locations such as `~/Downloads`. If multiple files are found it picks the most recently modified one and warns you. If no file is found, the script will ask whether you have a Lightup account — if not, it walks you through signing up for a 30-day free trial at [my.lightup.ai](https://my.lightup.ai).
 
 To use a specific credential file, pass the path explicitly:
 
@@ -82,8 +82,8 @@ Lightup Agentic exposes your Lightup data quality platform as an MCP (Model Cont
 | Requirement | Details |
 |---|---|
 | AI client | Claude Code, Gemini CLI, or Codex CLI |
-| Lightup account | An active Lightup instance with at least Viewer access |
-| API credential file | Download from Lightup UI → Profile → API Credentials → Download |
+| Lightup account | An active Lightup instance with at least Viewer access, or sign up for a [30-day free trial](https://my.lightup.ai) |
+| API credential file | Download from Lightup UI → Profile → API Credentials → Download (setup will guide you if you don't have one yet) |
 | Network access | Your machine must be able to reach the Lightup MCP server URL (provided by your Lightup team) |
 
 ---

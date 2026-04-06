@@ -22,6 +22,17 @@ claude
 
 That's it. The script looks for `lightup-api-credential*.json` in common locations such as `~/Downloads`, reads the credential file, infers the MCP endpoint, and registers everything with Claude Code.
 
+If no credential file is found, the script will prompt you:
+
+```
+Do you have a Lightup account?
+
+  1) Yes — log in and download my credentials
+  2) No  — sign up for a 30-day free trial
+```
+
+Choose **1** if you already have a Lightup account — the script will guide you to download your credentials. Choose **2** if you're new to Lightup — the script opens [my.lightup.ai](https://my.lightup.ai) in your browser and walks you through the trial signup steps.
+
 ---
 
 ## Prerequisites
@@ -29,8 +40,8 @@ That's it. The script looks for `lightup-api-credential*.json` in common locatio
 | Requirement | How to get it |
 |---|---|
 | Node.js 18+ | [nodejs.org](https://nodejs.org) — required by Claude Code and used by the session tracing hook |
-| Lightup account | Contact your Lightup admin |
-| API credential file | Lightup UI → Profile → API Credentials |
+| Lightup account | Contact your Lightup admin, or sign up for a [30-day free trial](https://my.lightup.ai) |
+| API credential file | Lightup UI → Profile → API Credentials (setup will guide you if you don't have one yet) |
 
 ---
 
@@ -84,12 +95,14 @@ claude
 
 ## 2. Download Your Lightup API Credential
 
+> **No Lightup account yet?** Run the setup script and choose option **2** when prompted — it will open [my.lightup.ai](https://my.lightup.ai) and walk you through signing up for a 30-day free trial. Once your account is ready, continue from step 4 below to download your credential file.
+
 ### 2.1 From the Lightup UI (Recommended)
 
 1. Log in to your Lightup instance (e.g., `https://app.<your-environment>.lightup.ai`)
 2. Click your profile icon in the top-right corner
 3. Select **API Credentials** from the dropdown menu
-4. Click **Create New Credential** or download an existing one
+4. Click **Generate API Credentials** and then **Download**
 5. Save the file as `lightup-api-credential.json` in your Downloads folder
 
 The credential file looks like this:
