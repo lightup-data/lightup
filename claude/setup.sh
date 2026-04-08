@@ -321,8 +321,15 @@ register_mcp() {
 
     info "Inferred MCP endpoint: $mcp_server"
 
-    info "Removing any existing '$MCP_NAME' MCP registration..."
-    "$CLAUDE_BIN" mcp remove "$MCP_NAME" $SCOPE 2>/dev/null || true
+    info "Removing any existing '$MCP_NAME' MCP registration (all scopes)..."
+    "$CLAUDE_BIN" mcp remove "$MCP_NAME" -s user    2>/dev/null || true
+    "$CLAUDE_BIN" mcp remove "$MCP_NAME" -s local   2>/dev/null || true
+    "$CLAUDE_BIN" mcp remove "$MCP_NAME" -s project 2>/dev/null || true
+    # Also clean up any home-directory project-level entry (e.g. ~/.claude.json).
+    # When invoked via `curl | bash`, the script runs in a temp dir so the
+    # above local/project removals won't reach the user's home project scope.
+    (cd "$HOME" && "$CLAUDE_BIN" mcp remove "$MCP_NAME" -s local   2>/dev/null || true)
+    (cd "$HOME" && "$CLAUDE_BIN" mcp remove "$MCP_NAME" -s project 2>/dev/null || true)
 
     info "Registering Lightup MCP server with Claude Code..."
     info "Running: claude mcp add --transport sse $MCP_NAME \"$sse_url\" $SCOPE"
