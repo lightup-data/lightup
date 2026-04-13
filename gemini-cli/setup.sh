@@ -310,7 +310,7 @@ register_mcp() {
     "$GEMINI_BIN" mcp remove "$MCP_NAME" $SCOPE 2>/dev/null || true
 
     info "Registering Lightup MCP server with Gemini CLI..."
-    "$GEMINI_BIN" mcp add --transport sse "$MCP_NAME" "$sse_url" $SCOPE
+    "$GEMINI_BIN" mcp add --transport sse --timeout 3600000 "$MCP_NAME" "$sse_url" $SCOPE
 
     ok "MCP server registered successfully!"
     echo ""
