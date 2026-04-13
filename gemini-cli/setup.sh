@@ -137,7 +137,7 @@ find_credential_file() {
         )
         for dir in "${search_paths[@]}"; do
             local found
-            found=$(find "$dir" -maxdepth 1 -name "lightup-api-credential*.json" -type f 2>/dev/null | head -1)
+            found=$(find "$dir" -maxdepth 1 -name "lightup-api-credential*.json" -type f -print0 2>/dev/null | xargs -0 ls -t 2>/dev/null | head -1)
             if [[ -n "$found" ]]; then
                 cred_file="$found"
                 info "Found credential file: $cred_file"
