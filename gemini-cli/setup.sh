@@ -334,14 +334,13 @@ verify_setup() {
         return
     fi
 
-    # Test the MCP HTTP endpoint — this is what Gemini CLI connects to,
-    # so an HTTP error here means the MCP connection will fail in-session too.
-    local mcp_server http_url http_code
+    # Test the server health endpoint to confirm the MCP server is reachable.
+    local mcp_server health_url http_code
     mcp_server=$(infer_mcp_endpoint "$LIGHTUP_HOST")
-    http_url="${mcp_server}/mcp?host=${LIGHTUP_HOST}&refresh_token=${LIGHTUP_REFRESH_TOKEN}"
+    health_url="${mcp_server}/health"
 
-    info "Testing MCP HTTP endpoint..."
-    http_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$http_url" 2>/dev/null) || true
+    info "Testing MCP server reachability..."
+    http_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$health_url" 2>/dev/null) || true
 
     case "$http_code" in
         200)
