@@ -324,11 +324,15 @@ register_mcp() {
 # ----- Verify ---------------------------------------------------------------
 verify_setup() {
     info "Verifying MCP registration..."
-    if ! "$GEMINI_BIN" mcp list 2>&1 | grep -q "$MCP_NAME"; then
+    local gemini_settings="$HOME/.gemini/settings.json"
+    if "$GEMINI_BIN" mcp list 2>&1 | grep -q "$MCP_NAME" 2>/dev/null; then
+        ok "Lightup MCP server is registered."
+    elif [[ -f "$gemini_settings" ]] && grep -q "$MCP_NAME" "$gemini_settings" 2>/dev/null; then
+        ok "Lightup MCP server is registered."
+    else
         warn "Could not verify registration. Run 'gemini mcp list' manually."
         return
     fi
-    ok "Lightup MCP server is registered."
 
     # Test the MCP HTTP endpoint — this is what Gemini CLI connects to,
     # so an HTTP error here means the MCP connection will fail in-session too.
