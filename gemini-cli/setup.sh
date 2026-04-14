@@ -334,13 +334,19 @@ verify_setup() {
         return
     fi
 
-    # Test the server health endpoint to confirm the MCP server is reachable.
-    local mcp_server health_url http_code
+    # Test the exact /mcp endpoint Gemini CLI will use — proves the full MCP
+    # stack (lifespan, session manager, protocol) is working, not just the server.
+    local mcp_server http_url http_code
     mcp_server=$(infer_mcp_endpoint "$LIGHTUP_HOST")
-    health_url="${mcp_server}/health"
+    http_url="${mcp_server}/mcp?host=${LIGHTUP_HOST}&refresh_token=${LIGHTUP_REFRESH_TOKEN}"
 
-    info "Testing MCP server reachability..."
-    http_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$health_url" 2>/dev/null) || true
+    info "Testing MCP endpoint..."
+    http_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 \
+        -H "Accept: application/json, text/event-stream" \
+        -H "Content-Type: application/json" \
+        -X POST \
+        -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"lightup-setup","version":"1.0"}}}' \
+        "$http_url" 2>/dev/null) || true
 
     case "$http_code" in
         200)
