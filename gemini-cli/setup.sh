@@ -302,7 +302,10 @@ register_mcp() {
     local mcp_server
     mcp_server=$(infer_mcp_endpoint "$LIGHTUP_HOST")
 
-    local sse_url="${mcp_server}/sse?host=${LIGHTUP_HOST}&refresh_token=${LIGHTUP_REFRESH_TOKEN}"
+    # Use Streamable HTTP (/mcp) instead of SSE (/sse).
+    # SSE holds a persistent TCP connection that breaks when the laptop sleeps;
+    # HTTP is per-request — it reconnects automatically on every tool call.
+    local http_url="${mcp_server}/mcp?host=${LIGHTUP_HOST}&refresh_token=${LIGHTUP_REFRESH_TOKEN}"
 
     info "Inferred MCP endpoint: $mcp_server"
 
@@ -310,7 +313,7 @@ register_mcp() {
     "$GEMINI_BIN" mcp remove "$MCP_NAME" $SCOPE 2>/dev/null || true
 
     info "Registering Lightup MCP server with Gemini CLI..."
-    "$GEMINI_BIN" mcp add --transport sse --timeout 3600000 "$MCP_NAME" "$sse_url" $SCOPE
+    "$GEMINI_BIN" mcp add --transport http "$MCP_NAME" "$http_url" $SCOPE
 
     ok "MCP server registered successfully!"
     echo ""
@@ -327,14 +330,14 @@ verify_setup() {
     fi
     ok "Lightup MCP server is registered."
 
-    # Test the actual SSE endpoint — this is what Gemini CLI connects to,
+    # Test the MCP HTTP endpoint — this is what Gemini CLI connects to,
     # so an HTTP error here means the MCP connection will fail in-session too.
-    local mcp_server sse_url http_code
+    local mcp_server http_url http_code
     mcp_server=$(infer_mcp_endpoint "$LIGHTUP_HOST")
-    sse_url="${mcp_server}/sse?host=${LIGHTUP_HOST}&refresh_token=${LIGHTUP_REFRESH_TOKEN}"
+    http_url="${mcp_server}/mcp?host=${LIGHTUP_HOST}&refresh_token=${LIGHTUP_REFRESH_TOKEN}"
 
-    info "Testing MCP SSE endpoint..."
-    http_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$sse_url" 2>/dev/null) || true
+    info "Testing MCP HTTP endpoint..."
+    http_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$http_url" 2>/dev/null) || true
 
     case "$http_code" in
         200)
