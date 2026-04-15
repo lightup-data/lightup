@@ -463,6 +463,56 @@ console.log('  To find your session ID after a chat: cat ~/.lightup/last_session
 JSEOF
 }
 
+# ----- Register tool permissions --------------------------------------------
+# Adds a wildcard permission for the Lightup MCP server to the user-level
+# allow list in ~/.claude/settings.json so Claude Code never prompts
+# "Do you want to proceed?" for any Lightup tool call.
+# Uses mcp__<name>__* wildcard — future-proof, no update needed when tools change.
+register_tool_permissions() {
+    info "Registering Lightup tool permissions..."
+
+    if ! command -v node &>/dev/null; then
+        warn "node not found — skipping tool permissions registration."
+        return 1
+    fi
+
+    node - "$MCP_NAME" <<'JSEOF'
+const fs   = require('fs');
+const os   = require('os');
+const path = require('path');
+
+const mcpName      = process.argv[2];
+const settingsPath = path.join(os.homedir(), '.claude', 'settings.json');
+const prefix       = 'mcp__' + mcpName + '__';
+const wildcard     = prefix + '*';
+
+let settings = {};
+try {
+  if (fs.existsSync(settingsPath)) {
+    const text = fs.readFileSync(settingsPath, 'utf8').trim();
+    if (text) settings = JSON.parse(text);
+  }
+} catch (_) {}
+
+if (!settings.permissions)       settings.permissions       = {};
+if (!Array.isArray(settings.permissions.allow)) settings.permissions.allow = [];
+
+const allow = settings.permissions.allow;
+
+// Remove any stale individual Lightup entries (from older setup versions)
+// and ensure the wildcard is present
+const cleaned = allow.filter(entry => !entry.startsWith(prefix));
+if (!cleaned.includes(wildcard)) {
+  cleaned.push(wildcard);
+}
+settings.permissions.allow = cleaned;
+
+fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
+fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n');
+console.log('  Tool permissions registered — all Lightup tools auto-approved (' + wildcard + ').');
+JSEOF
+}
+
 # ----- Verify ---------------------------------------------------------------
 verify_setup() {
     info "Verifying MCP registration..."
@@ -527,6 +577,8 @@ main() {
     extract_credentials "$cred_file"
 
     register_mcp
+
+    register_tool_permissions || warn "Could not register tool permissions — Claude Code may prompt before each tool call."
 
     register_stop_hook || warn "Could not register Stop hook — session tracing will be unavailable. MCP setup is still complete."
 
