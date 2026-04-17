@@ -1,0 +1,20 @@
+{
+  "name": "lightup-ai",
+  "description": "Lightup data quality platform — metrics, monitors, incidents, datasources via MCP",
+  "author": {
+    "name": "Lightup Engineering",
+    "email": "eng@lightup.ai",
+    "url": "https://lightup.ai"
+  },
+  "homepage": "https://lightup.ai",
+  "repository": "https://github.com/lightup-data/lightup",
+  "license": "Apache-2.0",
+  "keywords": [
+    "data-quality",
+    "metrics",
+    "monitors",
+    "incidents",
+    "mcp",
+    "lightup"
+  ]
+}
