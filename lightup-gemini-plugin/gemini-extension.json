@@ -1,0 +1,12 @@
+{
+  "name": "lightup",
+  "version": "1.0.0",
+  "description": "Lightup data quality platform — metrics, monitors, incidents, datasources via MCP",
+  "mcpServers": {
+    "lightup": {
+      "command": "bash",
+      "args": ["${extensionPath}/bin/connect.sh"]
+    }
+  },
+  "contextFileName": "GEMINI.md"
+}

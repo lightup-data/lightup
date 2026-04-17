@@ -1,0 +1,25 @@
+{
+  "name": "lightup",
+  "owner": {
+    "name": "Lightup Engineering",
+    "email": "eng@lightup.ai"
+  },
+  "metadata": {
+    "description": "Official Lightup plugins for Claude Code — connect your data quality platform to AI agents"
+  },
+  "plugins": [
+    {
+      "name": "lightup-ai",
+      "source": "./lightup-ai-plugin",
+      "description": "Lightup data quality platform — metrics, monitors, incidents, datasources via MCP",
+      "version": "1.0.0",
+      "author": {
+        "name": "Lightup Engineering",
+        "email": "eng@lightup.ai"
+      },
+      "homepage": "https://lightup.ai",
+      "repository": "https://github.com/lightup-data/lightup",
+      "keywords": ["data-quality", "metrics", "monitors", "incidents", "mcp", "lightup"]
+    }
+  ]
+}
