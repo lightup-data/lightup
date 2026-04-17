@@ -252,9 +252,21 @@ To update credentials when your token expires:
 ./claude/setup.sh ~/Downloads/lightup-api-credential-new.json
 ```
 
+## Claude Code Plugin (Alternative)
+
+Instead of `setup.sh`, you can install Lightup as a Claude Code plugin. The plugin auto-discovers your `lightup-api-credential.json` (same file used by this setup guide), connects automatically, and adds a specialized data quality investigation agent — no credential prompts.
+
+```bash
+claude plugin marketplace add lightup-data/lightup
+claude plugin install lightup-ai@lightup
+```
+
+See [../lightup-ai-plugin/README.md](../lightup-ai-plugin/README.md) for full details.
+
 ## Related Guides
 
 - Repository overview: [../README.md](../README.md)
+- Claude Code plugin: [../lightup-ai-plugin/README.md](../lightup-ai-plugin/README.md)
 - Gemini CLI: [../gemini-cli/README.md](../gemini-cli/README.md)
 - Codex CLI: [../codex-cli/README.md](../codex-cli/README.md)
 

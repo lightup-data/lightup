@@ -29,6 +29,17 @@ curl -sL https://raw.githubusercontent.com/lightup-data/lightup/main/setup.sh \
 
 Client-specific installation and usage details live in the dedicated guides below.
 
+## Claude Code Plugin (Alternative to setup.sh)
+
+If you use [Claude Code](https://docs.anthropic.com/en/docs/claude-code), you can install Lightup as a **Claude Code plugin** instead of running the setup script. The plugin auto-discovers your `lightup-api-credential.json`, connects automatically, and adds built-in slash commands and a specialized data quality agent — no credential prompts.
+
+```bash
+claude plugin marketplace add lightup-data/lightup
+claude plugin install lightup-ai@lightup
+```
+
+The plugin finds your credential file in `~/Downloads`, `~/Desktop`, or `~` automatically. See [lightup-ai-plugin/README.md](./lightup-ai-plugin/README.md) for full details.
+
 ## Available Guides
 
 - [Claude Code](./claude/README.md)
