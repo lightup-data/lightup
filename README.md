@@ -40,13 +40,6 @@ claude plugin install lightup-ai@lightup
 
 The plugin finds your credential file in `~/Downloads`, `~/Desktop`, or `~` automatically. See [lightup-ai-plugin/README.md](./lightup-ai-plugin/README.md) for full details.
 
-| Skill | What it does |
-|---|---|
-| `/lightup-ai:health` | Verify connection and show platform summary |
-| `/lightup-ai:incidents` | List recent incidents |
-| `/lightup-ai:diagnose <monitor>` | Diagnose a failing monitor |
-| `/lightup-ai:metrics <name>` | Search metrics by name |
-
 ## Available Guides
 
 - [Claude Code](./claude/README.md)

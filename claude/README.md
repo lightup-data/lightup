@@ -254,7 +254,7 @@ To update credentials when your token expires:
 
 ## Claude Code Plugin (Alternative)
 
-Instead of `setup.sh`, you can install Lightup as a Claude Code plugin. The plugin auto-discovers your `lightup-api-credential.json` (same file used by this setup guide), connects automatically, and adds built-in slash commands (`/lightup-ai:health`, `/lightup-ai:incidents`, `/lightup-ai:diagnose`, `/lightup-ai:metrics`) and a specialized data quality investigation agent — no credential prompts.
+Instead of `setup.sh`, you can install Lightup as a Claude Code plugin. The plugin auto-discovers your `lightup-api-credential.json` (same file used by this setup guide), connects automatically, and adds a specialized data quality investigation agent — no credential prompts.
 
 ```bash
 claude plugin marketplace add lightup-data/lightup

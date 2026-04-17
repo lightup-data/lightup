@@ -18,15 +18,6 @@ claude plugin install lightup-ai@lightup
 
 That's it. The plugin automatically discovers your `lightup-api-credential.json` in `~/Downloads`, `~/Desktop`, or `~`, parses the credentials, and connects.
 
-## Skills
-
-| Skill | What it does |
-|---|---|
-| `/lightup-ai:health` | Verify connection, list workspaces, show platform summary |
-| `/lightup-ai:incidents [workspace] [30d]` | List recent incidents |
-| `/lightup-ai:diagnose [workspace/]monitor-name` | Diagnose a failing or stuck monitor |
-| `/lightup-ai:metrics search-term` | Search metrics by name across all workspaces |
-
 ## Agent
 
 `data-quality-investigator` — invoked automatically when you ask Claude to investigate a data issue. Runs a structured investigation: incidents → monitors → diagnosis → failing records → summary.
@@ -45,7 +36,4 @@ Override the inferred URL (default: `mcp.X.lightup.ai:8765`):
 export LIGHTUP_MCP_SERVER=https://your-custom-mcp-server:8765
 ```
 
-**Token expired**  
-Download a new credential file and restart Claude Code.
-
-**Skills not showing** — run `/reload-plugins` inside Claude Code.
+**Token expired** — download a new credential file and restart Claude Code.
