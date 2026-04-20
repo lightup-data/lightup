@@ -317,7 +317,7 @@ register_mcp() {
     local mcp_server
     mcp_server=$(infer_mcp_endpoint "$LIGHTUP_HOST")
 
-    local sse_url="${mcp_server}/sse?host=${LIGHTUP_HOST}&refresh_token=${LIGHTUP_REFRESH_TOKEN}"
+    local sse_url="${mcp_server}/sse?host=${LIGHTUP_HOST}&refresh_token=${LIGHTUP_REFRESH_TOKEN}&ai_provider=claude"
 
     info "Inferred MCP endpoint: $mcp_server"
 
@@ -476,7 +476,7 @@ verify_setup() {
     # so an HTTP error here means the MCP connection will fail in-session too.
     local mcp_server sse_url http_code
     mcp_server=$(infer_mcp_endpoint "$LIGHTUP_HOST")
-    sse_url="${mcp_server}/sse?host=${LIGHTUP_HOST}&refresh_token=${LIGHTUP_REFRESH_TOKEN}"
+    sse_url="${mcp_server}/sse?host=${LIGHTUP_HOST}&refresh_token=${LIGHTUP_REFRESH_TOKEN}&ai_provider=claude"
 
     info "Testing MCP SSE endpoint..."
     http_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$sse_url" 2>/dev/null) || true
