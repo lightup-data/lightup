@@ -305,7 +305,7 @@ register_mcp() {
     # Use Streamable HTTP (/mcp) instead of SSE (/sse).
     # SSE holds a persistent TCP connection that breaks when the laptop sleeps;
     # HTTP is per-request — it reconnects automatically on every tool call.
-    local http_url="${mcp_server}/mcp?host=${LIGHTUP_HOST}&refresh_token=${LIGHTUP_REFRESH_TOKEN}"
+    local http_url="${mcp_server}/mcp?host=${LIGHTUP_HOST}&refresh_token=${LIGHTUP_REFRESH_TOKEN}&ai_provider=gemini"
 
     info "Inferred MCP endpoint: $mcp_server"
 
@@ -339,7 +339,7 @@ verify_setup() {
     # stack (lifespan, session manager, protocol) is working, not just the server.
     local mcp_server http_url http_code
     mcp_server=$(infer_mcp_endpoint "$LIGHTUP_HOST")
-    http_url="${mcp_server}/mcp?host=${LIGHTUP_HOST}&refresh_token=${LIGHTUP_REFRESH_TOKEN}"
+    http_url="${mcp_server}/mcp?host=${LIGHTUP_HOST}&refresh_token=${LIGHTUP_REFRESH_TOKEN}&ai_provider=gemini"
 
     info "Testing MCP HTTP endpoint..."
     http_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 \
