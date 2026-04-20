@@ -313,6 +313,7 @@ register_mcp() {
     "$GEMINI_BIN" mcp remove "$MCP_NAME" $SCOPE 2>/dev/null || true
 
     info "Registering Lightup MCP server with Gemini CLI..."
+    info "Running: gemini mcp add --transport http $MCP_NAME \"$http_url\" $SCOPE"
     "$GEMINI_BIN" mcp add --transport http "$MCP_NAME" "$http_url" $SCOPE
 
     ok "MCP server registered successfully!"
@@ -340,7 +341,7 @@ verify_setup() {
     mcp_server=$(infer_mcp_endpoint "$LIGHTUP_HOST")
     http_url="${mcp_server}/mcp?host=${LIGHTUP_HOST}&refresh_token=${LIGHTUP_REFRESH_TOKEN}"
 
-    info "Testing MCP endpoint..."
+    info "Testing MCP HTTP endpoint..."
     http_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 \
         -H "Accept: application/json, text/event-stream" \
         -H "Content-Type: application/json" \
