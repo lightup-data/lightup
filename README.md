@@ -40,6 +40,16 @@ claude plugin install lightup-ai@lightup
 
 The plugin finds your credential file in `~/Downloads`, `~/Desktop`, or `~` automatically. See [lightup-ai-plugin/README.md](./lightup-ai-plugin/README.md) for full details.
 
+## Gemini CLI Extension (Alternative to setup.sh)
+
+If you use [Gemini CLI](https://github.com/google-gemini/gemini-cli), you can install Lightup as a **Gemini CLI extension** instead of running the setup script. The extension auto-discovers your `lightup-api-credential.json`, connects automatically, and adds a specialized data quality agent — no credential prompts.
+
+```bash
+gemini extensions install https://github.com/lightup-data/lightup
+```
+
+The extension finds your credential file in `~/Downloads`, `~/Desktop`, or `~` automatically. See [lightup-gemini-plugin/README.md](./lightup-gemini-plugin/README.md) for full details.
+
 ## Available Guides
 
 - [Claude Code](./claude/README.md)

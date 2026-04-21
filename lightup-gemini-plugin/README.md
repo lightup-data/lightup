@@ -12,11 +12,18 @@ Extends Gemini CLI with Lightup data quality tools — metrics, monitors, incide
 ## Install
 
 ```bash
-mkdir -p ~/.gemini/extensions
-ln -sf /path/to/lightup-gemini-plugin ~/.gemini/extensions/lightup
+gemini extensions install https://github.com/lightup-data/lightup
 ```
 
-The plugin automatically discovers your `lightup-api-credential.json` in `~/Downloads`, `~/Desktop`, or `~`, parses the credentials, and connects.
+The extension automatically discovers your `lightup-api-credential.json` in `~/Downloads`, `~/Desktop`, or `~`, parses the credentials, and connects.
+
+### Local development
+
+To test changes without publishing, link the directory directly:
+
+```bash
+gemini extensions link /path/to/lightup/lightup-gemini-plugin
+```
 
 ## Usage
 
