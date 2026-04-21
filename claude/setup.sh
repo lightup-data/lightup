@@ -397,29 +397,37 @@ process.stdin.on('end', () => {
       fs.writeFileSync(sidFile, sessionId, 'utf8');
     } catch (_) {}
 
-    const transcript = transcriptPath && fs.existsSync(transcriptPath)
-      ? fs.readFileSync(transcriptPath, 'utf8')
-      : '';
+    // Wait 1s so Claude Code has time to flush the final assistant message
+    // to the transcript file before we read it.  The Stop hook fires immediately
+    // after the API response arrives, but the file write is async — without this
+    // delay the end_turn assistant text (and sometimes tool results) may be absent.
+    setTimeout(() => {
+      try {
+        const transcript = transcriptPath && fs.existsSync(transcriptPath)
+          ? fs.readFileSync(transcriptPath, 'utf8')
+          : '';
 
-    const body = JSON.stringify({
-      session_id: sessionId,
-      cwd,
-      transcript,
-      host: LIGHTUP_HOST,
-    });
+        const body = JSON.stringify({
+          session_id: sessionId,
+          cwd,
+          transcript,
+          host: LIGHTUP_HOST,
+        });
 
-    const url = new URL(LOG_TURN_URL);
-    const mod = url.protocol === 'https:' ? https : http;
-    const req = mod.request(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(body),
-      },
-    });
-    req.on('error', () => {});
-    req.write(body);
-    req.end();
+        const url = new URL(LOG_TURN_URL);
+        const mod = url.protocol === 'https:' ? https : http;
+        const req = mod.request(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(body),
+          },
+        });
+        req.on('error', () => {});
+        req.write(body);
+        req.end();
+      } catch (_) {}
+    }, 1000);
   } catch (_) {}
 });
 JSEOF
