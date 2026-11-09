@@ -12,6 +12,11 @@ MCP_PORT="${LIGHTUP_MCP_PORT:-}"
 MCP_NAME="lightup"
 SCOPE="-s user"
 
+# Claude Desktop handling: "" = ask, "yes" = always, "no" = never.
+# Overridable with --desktop / --no-desktop or LIGHTUP_CONFIGURE_DESKTOP.
+CONFIGURE_DESKTOP="${LIGHTUP_CONFIGURE_DESKTOP:-}"
+CRED_FILE_ARG=""
+
 # ----- Colors ---------------------------------------------------------------
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -79,6 +84,38 @@ json_validate() {
     else
         return 1
     fi
+}
+
+# ----- Usage ----------------------------------------------------------------
+usage() {
+    cat <<'EOF'
+Lightup MCP setup for Claude Code (and optionally Claude Desktop)
+
+Usage:
+  ./setup.sh [credential_json_path] [--desktop | --no-desktop]
+
+Options:
+  --desktop      Configure Claude Desktop too, without asking
+  --no-desktop   Skip Claude Desktop entirely
+  -h, --help     Show this help
+
+Environment:
+  LIGHTUP_CONFIGURE_DESKTOP=yes|no   Same as --desktop / --no-desktop
+EOF
+}
+
+parse_args() {
+    local positional=()
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --desktop)     CONFIGURE_DESKTOP="yes" ;;
+            --no-desktop)  CONFIGURE_DESKTOP="no" ;;
+            -h|--help)     usage; exit 0 ;;
+            *)             positional+=("$1") ;;
+        esac
+        shift
+    done
+    CRED_FILE_ARG="${positional[0]:-}"
 }
 
 # ----- Prerequisites -------------------------------------------------------
@@ -471,6 +508,233 @@ console.log('  To find your session ID after a chat: cat ~/.lightup/last_session
 JSEOF
 }
 
+# ----- Claude Desktop -------------------------------------------------------
+# Claude Desktop reads MCP servers from a local JSON config and only speaks
+# stdio, so the remote SSE server is bridged through `mcp-remote`.
+#   macOS    ~/Library/Application Support/Claude/claude_desktop_config.json
+#   Linux    ~/.config/Claude/claude_desktop_config.json
+#   Windows  %APPDATA%\Claude\claude_desktop_config.json
+claude_desktop_config_path() {
+    case "$(uname -s)" in
+        Darwin)
+            echo "$HOME/Library/Application Support/Claude/claude_desktop_config.json"
+            ;;
+        MINGW*|MSYS*|CYGWIN*)
+            echo "${APPDATA:-$HOME/AppData/Roaming}/Claude/claude_desktop_config.json"
+            ;;
+        *)
+            echo "${XDG_CONFIG_HOME:-$HOME/.config}/Claude/claude_desktop_config.json"
+            ;;
+    esac
+}
+
+claude_desktop_installed() {
+    # The config directory is created the first time Claude Desktop runs.
+    local cfg_dir
+    cfg_dir="$(dirname "$(claude_desktop_config_path)")"
+    if [[ -d "$cfg_dir" ]]; then
+        return 0
+    fi
+
+    # Fall back to looking for the app itself (installed but never launched).
+    case "$(uname -s)" in
+        Darwin)
+            if [[ -d "/Applications/Claude.app" || -d "$HOME/Applications/Claude.app" ]]; then
+                return 0
+            fi
+            ;;
+        MINGW*|MSYS*|CYGWIN*)
+            if [[ -d "${LOCALAPPDATA:-$HOME/AppData/Local}/AnthropicClaude" ]]; then
+                return 0
+            fi
+            ;;
+        *)
+            if command -v claude-desktop &>/dev/null; then
+                return 0
+            fi
+            ;;
+    esac
+    return 1
+}
+
+# Claude Desktop launches MCP servers from the GUI, which does not inherit the
+# login shell PATH — so write absolute paths and an explicit PATH into the
+# config instead of relying on bare "npx" resolving at launch time.
+register_claude_desktop() {
+    if ! claude_desktop_installed; then
+        info "Claude Desktop not detected — skipping."
+        return 0
+    fi
+
+    case "$CONFIGURE_DESKTOP" in
+        no)
+            info "Skipping Claude Desktop (--no-desktop)."
+            return 0
+            ;;
+        yes) ;;
+        *)
+            if [[ ! -t 0 ]]; then
+                warn "Claude Desktop detected, but there is no terminal to ask on."
+                warn "Re-run with --desktop (or LIGHTUP_CONFIGURE_DESKTOP=yes) to configure it."
+                return 0
+            fi
+            echo "" >&2
+            info "Claude Desktop detected."
+            local reply=""
+            read -rp "  Also configure Lightup for Claude Desktop? [Y/n]: " reply
+            case "${reply:-Y}" in
+                [Nn]*)
+                    info "Skipped Claude Desktop."
+                    return 0
+                    ;;
+            esac
+            ;;
+    esac
+
+    local node_bin npx_bin
+    if ! command -v node &>/dev/null; then
+        warn "node not found — cannot configure Claude Desktop (mcp-remote needs Node.js 18+)."
+        return 1
+    fi
+    node_bin="$(command -v node)"
+
+    if command -v npx &>/dev/null; then
+        npx_bin="$(command -v npx)"
+    elif [[ -x "$(dirname "$node_bin")/npx" ]]; then
+        npx_bin="$(dirname "$node_bin")/npx"
+    else
+        warn "npx not found alongside node — cannot configure Claude Desktop."
+        return 1
+    fi
+
+    # mcp-remote requires Node 18+. Writing a config that cannot launch is
+    # worse than not writing one — Claude Desktop would just show a dead server.
+    local node_major
+    node_major="$("$node_bin" -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)"
+    if [[ "$node_major" -lt 18 ]]; then
+        warn "Node $("$node_bin" -v 2>/dev/null) is too old for mcp-remote (needs 18+)."
+        warn "Upgrade Node and re-run with --desktop to configure Claude Desktop."
+        return 1
+    fi
+
+    local mcp_server sse_url cfg_path path_env
+    mcp_server=$(infer_mcp_endpoint "$LIGHTUP_HOST")
+    sse_url="${mcp_server}/sse?host=${LIGHTUP_HOST}&refresh_token=${LIGHTUP_REFRESH_TOKEN}&ai_provider=claude"
+    cfg_path="$(claude_desktop_config_path)"
+    path_env="$(dirname "$node_bin"):/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin"
+
+    info "Writing MCP entry to $cfg_path"
+
+    if ! LIGHTUP_CFG_PATH="$cfg_path" \
+         LIGHTUP_SSE_URL="$sse_url" \
+         LIGHTUP_NPX_BIN="$npx_bin" \
+         LIGHTUP_PATH_ENV="$path_env" \
+         LIGHTUP_MCP_NAME="$MCP_NAME" \
+         node - <<'JSEOF'
+const fs   = require('fs');
+const path = require('path');
+
+const cfgPath = process.env.LIGHTUP_CFG_PATH;
+const name    = process.env.LIGHTUP_MCP_NAME;
+
+const fail = (msg, hint) => {
+  console.error('  ' + msg);
+  if (hint) console.error('  ' + hint);
+  process.exit(1);
+};
+
+// ── Read ──────────────────────────────────────────────────────────────────
+let cfg = {};
+let existed = false;
+try {
+  const st = fs.statSync(cfgPath);
+  if (!st.isFile()) fail(cfgPath + ' is not a regular file.', 'Move it aside and re-run setup.');
+  existed = true;
+} catch (e) {
+  if (e.code !== 'ENOENT') fail('Cannot access ' + cfgPath + ': ' + e.message);
+}
+
+if (existed) {
+  let text;
+  try {
+    text = fs.readFileSync(cfgPath, 'utf8').trim();
+  } catch (e) {
+    fail('Cannot read ' + cfgPath + ': ' + e.message,
+         'Check file permissions, then re-run setup.');
+  }
+  if (text) {
+    try {
+      cfg = JSON.parse(text);
+    } catch (e) {
+      // Never clobber a config we could not parse — it holds the user's other servers.
+      fail('Existing config is not valid JSON: ' + e.message,
+           'Fix or move ' + cfgPath + ', then re-run setup.');
+    }
+  }
+  if (cfg === null || typeof cfg !== 'object' || Array.isArray(cfg)) {
+    fail('Existing config is not a JSON object.',
+         'Fix or move ' + cfgPath + ', then re-run setup.');
+  }
+}
+
+// ── Back up before touching anything — abort if we cannot ─────────────────
+if (existed) {
+  try {
+    fs.copyFileSync(cfgPath, cfgPath + '.bak');
+  } catch (e) {
+    fail('Could not back up the existing config: ' + e.message,
+         'Refusing to overwrite it without a backup.');
+  }
+}
+
+// ── Merge ─────────────────────────────────────────────────────────────────
+if (!cfg.mcpServers || typeof cfg.mcpServers !== 'object' || Array.isArray(cfg.mcpServers)) {
+  cfg.mcpServers = {};
+}
+
+cfg.mcpServers[name] = {
+  command: process.env.LIGHTUP_NPX_BIN,
+  args: [
+    '-y',
+    'mcp-remote',
+    process.env.LIGHTUP_SSE_URL,
+    '--transport',
+    'sse-only',
+  ],
+  env: { PATH: process.env.LIGHTUP_PATH_ENV },
+};
+
+// ── Write atomically: a crash or full disk mid-write must not corrupt the
+//    live config, so stage a temp file in the same directory and rename. ───
+const dir = path.dirname(cfgPath);
+const tmp = path.join(dir, '.' + path.basename(cfgPath) + '.lightup.tmp');
+try {
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(tmp, JSON.stringify(cfg, null, 2) + '\n', { mode: 0o600 });
+  fs.renameSync(tmp, cfgPath);
+} catch (e) {
+  try { fs.unlinkSync(tmp); } catch (_) {}
+  fail('Could not write ' + cfgPath + ': ' + e.message,
+       existed
+         ? 'Your original config is unchanged (a copy is at ' + path.basename(cfgPath) + '.bak).'
+         : 'Check directory permissions, then re-run setup.');
+}
+
+if (existed) console.log('  Existing config backed up to ' + path.basename(cfgPath) + '.bak');
+JSEOF
+    then
+        warn "Could not update the Claude Desktop config."
+        return 1
+    fi
+
+    ok "Lightup registered in Claude Desktop."
+    echo ""
+    echo "  Quit Claude Desktop completely and reopen it, then try:"
+    echo "    > list workspaces"
+    echo ""
+    return 0
+}
+
 # ----- Verify ---------------------------------------------------------------
 verify_setup() {
     info "Verifying MCP registration..."
@@ -521,6 +785,8 @@ verify_setup() {
 
 # ----- Main -----------------------------------------------------------------
 main() {
+    parse_args "$@"
+
     echo ""
     echo "=========================================="
     echo "  Lightup MCP Setup for Claude Code"
@@ -530,7 +796,7 @@ main() {
     check_prerequisites
 
     local cred_file
-    cred_file=$(find_credential_file "${1:-}")
+    cred_file=$(find_credential_file "$CRED_FILE_ARG")
 
     extract_credentials "$cred_file"
 
@@ -539,6 +805,8 @@ main() {
     register_stop_hook || warn "Could not register Stop hook — session tracing will be unavailable. MCP setup is still complete."
 
     verify_setup
+
+    register_claude_desktop || warn "Claude Desktop was not configured. Claude Code setup is still complete."
 
     echo ""
     ok "Setup complete! Start a new Claude Code session and try:"

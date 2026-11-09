@@ -1,6 +1,6 @@
 # Lightup + Claude Code Setup
 
-Connect your [Lightup](https://lightup.ai) data quality platform to [Claude Code](https://docs.anthropic.com/en/docs/claude-code) via MCP in under 2 minutes.
+Connect your [Lightup](https://lightup.ai) data quality platform to [Claude Code](https://docs.anthropic.com/en/docs/claude-code) — and optionally the Claude Desktop app — via MCP in under 2 minutes.
 
 ## Quick Start
 
@@ -181,6 +181,7 @@ The script performs these steps:
 - Registers the remote MCP server with Claude Code
 - Writes `~/.lightup/log_turn_hook.js` and registers it as a Claude Code Stop hook for session tracing
 - Verifies the registration was successful
+- Detects Claude Desktop and offers to configure it too (see [3.4](#34-claude-desktop))
 
 ### 3.2 Manual Setup
 
@@ -196,7 +197,7 @@ MCP_HOST=$(echo "$HOST" | sed 's|https://app\.|mcp.|; s|http://app\.|mcp.|')
 
 # Register the MCP server
 claude mcp add --transport sse lightup \
-  "https://${MCP_HOST}:8765/sse?host=${HOST}&refresh_token=${TOKEN}" \
+  "https://${MCP_HOST}/sse?host=${HOST}&refresh_token=${TOKEN}&ai_provider=claude" \
   -s user
 ```
 
@@ -220,6 +221,53 @@ claude
 ```
 
 You should see your Lightup workspaces listed. If you see an authentication error, double-check your credential file and re-run the setup.
+
+### 3.4 Claude Desktop
+
+Once Claude Code is registered, the script checks for the Claude Desktop app and offers to configure it as well:
+
+```
+[INFO]  Claude Desktop detected.
+
+  Also configure Lightup for Claude Desktop? [Y/n]:
+```
+
+Answer `Y` and it writes the Lightup entry into `claude_desktop_config.json`. Quit Claude Desktop completely and reopen it, then confirm the Lightup tools appear in a new chat.
+
+Skip the prompt with a flag:
+
+```bash
+./claude/setup.sh --desktop      # always configure Claude Desktop
+./claude/setup.sh --no-desktop   # never touch Claude Desktop
+```
+
+`LIGHTUP_CONFIGURE_DESKTOP=yes|no` does the same for non-interactive runs. Via the repo-level wrapper, pass the flag through: `bash -s -- claude --desktop`.
+
+**Already connected Claude Code before this existed?** Just re-run the same setup command — it is fetched fresh from `main` each time, so it now includes Desktop support. Re-running is idempotent: the Claude Code MCP entry is removed and re-added, the Stop hook is replaced rather than duplicated, and the Desktop config gets a single `lightup` entry.
+
+**How it works.** Claude Desktop only speaks stdio, so the remote SSE server is bridged through [`mcp-remote`](https://www.npmjs.com/package/mcp-remote) (Node.js 18+). Because Claude Desktop launches MCP servers from the GUI — which does not inherit your shell `PATH` — the script writes the absolute `npx` path and an explicit `PATH` into the config.
+
+| Platform | Config path |
+|---|---|
+| macOS | `~/Library/Application Support/Claude/claude_desktop_config.json` |
+| Linux | `~/.config/Claude/claude_desktop_config.json` |
+| Windows | `%APPDATA%\Claude\claude_desktop_config.json` |
+
+```json
+{
+  "mcpServers": {
+    "lightup": {
+      "command": "/path/to/npx",
+      "args": ["-y", "mcp-remote", "https://mcp.<instance>.lightup.ai/sse?host=...&refresh_token=...&ai_provider=claude", "--transport", "sse-only"],
+      "env": { "PATH": "/path/to/node/bin:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin" }
+    }
+  }
+}
+```
+
+Existing `mcpServers` entries and other config keys are preserved, and the previous file is kept as `claude_desktop_config.json.bak`. If the existing config is not valid JSON the script stops rather than overwriting it.
+
+> Session tracing is a Claude Code Stop hook and does not apply to Claude Desktop — only the MCP connection is configured there.
 
 ---
 
