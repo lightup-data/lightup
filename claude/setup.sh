@@ -514,12 +514,48 @@ JSEOF
 #   macOS    ~/Library/Application Support/Claude/claude_desktop_config.json
 #   Linux    ~/.config/Claude/claude_desktop_config.json
 #   Windows  %APPDATA%\Claude\claude_desktop_config.json
-claude_desktop_config_path() {
+# macos | windows | wsl | linux. WSL is called out separately: uname reports
+# Linux there, but Claude Desktop is the Windows app, so its config lives on the
+# Windows side and it would launch Windows binaries — a Linux npx path written
+# into ~/.config would never work.
+os_kind() {
     case "$(uname -s)" in
         Darwin)
-            echo "$HOME/Library/Application Support/Claude/claude_desktop_config.json"
+            echo "macos"
             ;;
         MINGW*|MSYS*|CYGWIN*)
+            echo "windows"
+            ;;
+        Linux)
+            if grep -qiE 'microsoft|wsl' /proc/version 2>/dev/null; then
+                echo "wsl"
+            else
+                echo "linux"
+            fi
+            ;;
+        *)
+            echo "linux"
+            ;;
+    esac
+}
+
+# Claude Desktop on Windows is a native app: it cannot spawn MSYS-style
+# (/c/...) paths, so values written into its config must be Windows paths.
+to_native_path() {
+    local p="$1"
+    if [[ "$(os_kind)" == "windows" ]] && command -v cygpath &>/dev/null; then
+        cygpath -w "$p" 2>/dev/null || echo "$p"
+    else
+        echo "$p"
+    fi
+}
+
+claude_desktop_config_path() {
+    case "$(os_kind)" in
+        macos)
+            echo "$HOME/Library/Application Support/Claude/claude_desktop_config.json"
+            ;;
+        windows)
             echo "${APPDATA:-$HOME/AppData/Roaming}/Claude/claude_desktop_config.json"
             ;;
         *)
@@ -537,18 +573,20 @@ claude_desktop_installed() {
     fi
 
     # Fall back to looking for the app itself (installed but never launched).
-    case "$(uname -s)" in
-        Darwin)
+    case "$(os_kind)" in
+        macos)
             if [[ -d "/Applications/Claude.app" || -d "$HOME/Applications/Claude.app" ]]; then
                 return 0
             fi
             ;;
-        MINGW*|MSYS*|CYGWIN*)
+        windows)
             if [[ -d "${LOCALAPPDATA:-$HOME/AppData/Local}/AnthropicClaude" ]]; then
                 return 0
             fi
             ;;
         *)
+            # No official Claude Desktop build for Linux; community packages
+            # install a `claude-desktop` binary and use ~/.config/Claude.
             if command -v claude-desktop &>/dev/null; then
                 return 0
             fi
@@ -561,6 +599,15 @@ claude_desktop_installed() {
 # login shell PATH — so write absolute paths and an explicit PATH into the
 # config instead of relying on bare "npx" resolving at launch time.
 register_claude_desktop() {
+    if [[ "$(os_kind)" == "wsl" ]]; then
+        # Writing a Linux config here would be silently useless: the Windows
+        # Claude Desktop app reads its config from the Windows user profile and
+        # launches Windows binaries.
+        info "Running under WSL — Claude Desktop is a Windows app and is configured from Windows."
+        info "Run this setup from a Windows shell, or follow the manual steps in the README."
+        return 0
+    fi
+
     if ! claude_desktop_installed; then
         info "Claude Desktop not detected — skipping."
         return 0
@@ -598,7 +645,21 @@ register_claude_desktop() {
     fi
     node_bin="$(command -v node)"
 
-    if command -v npx &>/dev/null; then
+    # On Windows the native app must spawn npx.cmd — `command -v npx` finds the
+    # POSIX shim, which only a MSYS/Cygwin shell can execute.
+    if [[ "$(os_kind)" == "windows" ]]; then
+        local node_dir
+        node_dir="$(dirname "$node_bin")"
+        if [[ -f "$node_dir/npx.cmd" ]]; then
+            npx_bin="$node_dir/npx.cmd"
+        elif command -v npx.cmd &>/dev/null; then
+            npx_bin="$(command -v npx.cmd)"
+        else
+            warn "npx.cmd not found next to node — cannot configure Claude Desktop."
+            warn "Claude Desktop cannot launch the POSIX 'npx' shim; see the README for manual steps."
+            return 1
+        fi
+    elif command -v npx &>/dev/null; then
         npx_bin="$(command -v npx)"
     elif [[ -x "$(dirname "$node_bin")/npx" ]]; then
         npx_bin="$(dirname "$node_bin")/npx"
@@ -621,11 +682,19 @@ register_claude_desktop() {
     mcp_server=$(infer_mcp_endpoint "$LIGHTUP_HOST")
     sse_url="${mcp_server}/sse?host=${LIGHTUP_HOST}&refresh_token=${LIGHTUP_REFRESH_TOKEN}&ai_provider=claude"
     cfg_path="$(claude_desktop_config_path)"
-    path_env="$(dirname "$node_bin"):/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin"
+
+    # PATH uses ';' on Windows and ':' elsewhere, and the entries handed to a
+    # native Windows app must be Windows paths.
+    if [[ "$(os_kind)" == "windows" ]]; then
+        path_env="$(to_native_path "$(dirname "$node_bin")")"
+        npx_bin="$(to_native_path "$npx_bin")"
+    else
+        path_env="$(dirname "$node_bin"):/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin"
+    fi
 
     info "Writing MCP entry to $cfg_path"
 
-    if ! LIGHTUP_CFG_PATH="$cfg_path" \
+    if ! LIGHTUP_CFG_PATH="$(to_native_path "$cfg_path")" \
          LIGHTUP_SSE_URL="$sse_url" \
          LIGHTUP_NPX_BIN="$npx_bin" \
          LIGHTUP_PATH_ENV="$path_env" \

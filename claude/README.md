@@ -247,11 +247,14 @@ Skip the prompt with a flag:
 
 **How it works.** Claude Desktop only speaks stdio, so the remote SSE server is bridged through [`mcp-remote`](https://www.npmjs.com/package/mcp-remote) (Node.js 18+). Because Claude Desktop launches MCP servers from the GUI — which does not inherit your shell `PATH` — the script writes the absolute `npx` path and an explicit `PATH` into the config.
 
-| Platform | Config path |
-|---|---|
-| macOS | `~/Library/Application Support/Claude/claude_desktop_config.json` |
-| Linux | `~/.config/Claude/claude_desktop_config.json` |
-| Windows | `%APPDATA%\Claude\claude_desktop_config.json` |
+| Platform | Config path | Status |
+|---|---|---|
+| macOS | `~/Library/Application Support/Claude/claude_desktop_config.json` | Verified end-to-end |
+| Windows (Git Bash / MSYS) | `%APPDATA%\Claude\claude_desktop_config.json` | Implemented, not yet verified on real hardware |
+| Linux | `~/.config/Claude/claude_desktop_config.json` | Community builds only (no official Linux app) |
+| WSL | — | Detected and skipped — configure from the Windows side |
+
+Windows uses `npx.cmd` and `cygpath`-converted paths, because the native app cannot launch the POSIX `npx` shim or MSYS-style `/c/...` paths. If `npx.cmd` is missing the script refuses to write rather than leaving a server that dies at launch. On any OS without Claude Desktop the step is skipped and Claude Code setup is unaffected.
 
 ```json
 {

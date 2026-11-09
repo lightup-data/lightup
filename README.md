@@ -82,11 +82,18 @@ Re-running is safe and idempotent. It re-registers the Claude Code MCP server (r
 
 Claude Desktop only speaks stdio, so the remote SSE server is bridged through [`mcp-remote`](https://www.npmjs.com/package/mcp-remote) (requires Node.js 18+). The script writes absolute paths, because Claude Desktop launches MCP servers from the GUI and does not inherit your shell `PATH`.
 
-| Platform | Config path |
-|---|---|
-| macOS | `~/Library/Application Support/Claude/claude_desktop_config.json` |
-| Linux | `~/.config/Claude/claude_desktop_config.json` |
-| Windows | `%APPDATA%\Claude\claude_desktop_config.json` |
+| Platform | Config path | Status |
+|---|---|---|
+| macOS | `~/Library/Application Support/Claude/claude_desktop_config.json` | Verified end-to-end |
+| Windows (Git Bash / MSYS) | `%APPDATA%\Claude\claude_desktop_config.json` | Implemented, not yet verified on a real Windows machine |
+| Linux | `~/.config/Claude/claude_desktop_config.json` | Community builds only — there is no official Claude Desktop for Linux |
+| WSL | — | Skipped by design, see below |
+
+On Windows the script writes `npx.cmd` rather than the POSIX `npx` shim, and converts paths with `cygpath` — the native app cannot launch MSYS-style (`/c/...`) paths or shell shims. If `npx.cmd` cannot be found it refuses to write a config rather than leaving a server that fails silently at launch.
+
+Under **WSL** the script detects the environment and skips: `uname` reports Linux, but Claude Desktop is the Windows app, so it reads its config from the Windows user profile and launches Windows binaries. A Linux `npx` path written into `~/.config` would never work. Run setup from a Windows shell instead, or apply the JSON above manually on the Windows side.
+
+On any other OS, detection simply finds no Claude Desktop and the step is skipped — Claude Code setup is unaffected.
 
 ```json
 {
