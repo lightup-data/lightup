@@ -40,6 +40,67 @@ claude plugin install lightup-ai@lightup
 
 The plugin finds your credential file in `~/Downloads`, `~/Desktop`, or `~` automatically. See [lightup-ai-plugin/README.md](./lightup-ai-plugin/README.md) for full details.
 
+## Claude Desktop
+
+The `claude` setup flow configures **Claude Desktop** too. After registering Claude Code, it detects Claude Desktop and asks:
+
+```
+[OK]    MCP server registered successfully!
+[INFO]  Claude Desktop detected.
+
+  Also configure Lightup for Claude Desktop? [Y/n]:
+```
+
+Answer `Y` and it writes the Lightup entry into your `claude_desktop_config.json` — no manual JSON editing. Quit Claude Desktop completely and reopen it to pick up the change.
+
+To skip the prompt in either direction:
+
+```bash
+# Always configure Claude Desktop
+curl -sL https://raw.githubusercontent.com/lightup-data/lightup/main/setup.sh \
+  | bash -s -- claude --desktop
+
+# Never touch Claude Desktop
+curl -sL https://raw.githubusercontent.com/lightup-data/lightup/main/setup.sh \
+  | bash -s -- claude --no-desktop
+```
+
+`LIGHTUP_CONFIGURE_DESKTOP=yes|no` works the same way for non-interactive runs.
+
+### What it writes
+
+Claude Desktop only speaks stdio, so the remote SSE server is bridged through [`mcp-remote`](https://www.npmjs.com/package/mcp-remote) (requires Node.js 18+). The script writes absolute paths, because Claude Desktop launches MCP servers from the GUI and does not inherit your shell `PATH`.
+
+| Platform | Config path |
+|---|---|
+| macOS | `~/Library/Application Support/Claude/claude_desktop_config.json` |
+| Linux | `~/.config/Claude/claude_desktop_config.json` |
+| Windows | `%APPDATA%\Claude\claude_desktop_config.json` |
+
+```json
+{
+  "mcpServers": {
+    "lightup": {
+      "command": "/path/to/npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://mcp.<instance>.lightup.ai/sse?host=https://app.<instance>.lightup.ai&refresh_token=<token>&ai_provider=claude",
+        "--transport",
+        "sse-only"
+      ],
+      "env": { "PATH": "/path/to/node/bin:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin" }
+    }
+  }
+}
+```
+
+Existing entries in `mcpServers` and any other keys are preserved, and the previous file is saved alongside as `claude_desktop_config.json.bak`. If the existing config is not valid JSON the script stops instead of overwriting it.
+
+> **Note:** session tracing (the Claude Code Stop hook) does not apply to Claude Desktop — only the MCP connection is configured there.
+
+> **Keep the config private.** The bridged URL embeds your refresh token — treat it like a password, and re-run setup with a fresh credential file when the token expires.
+
 ## Gemini CLI Extension (Alternative to setup.sh)
 
 If you use [Gemini CLI](https://github.com/google-gemini/gemini-cli), you can install Lightup as a **Gemini CLI extension** instead of running the setup script. The extension auto-discovers your `lightup-api-credential.json`, connects automatically, and adds a specialized data quality agent — no credential prompts.
@@ -53,6 +114,7 @@ The extension finds your credential file in `~/Downloads`, `~/Desktop`, or `~` a
 ## Available Guides
 
 - [Claude Code](./claude/README.md)
+- [Claude Desktop](#claude-desktop)
 - [Gemini CLI](./gemini-cli/README.md)
 - <sub>Codex CLI (coming soon)</sub>
 
@@ -63,6 +125,7 @@ Lightup helps teams bring trusted data quality context into the tools they alrea
 ## Current Support
 
 - Claude Code: available now
+- Claude Desktop: available now (configured by the `claude` setup flow)
 - Gemini CLI: available now
 - Codex CLI: coming soon
 
@@ -83,9 +146,9 @@ Lightup Agentic exposes your Lightup data quality platform as an MCP (Model Cont
 │   AI Agent Client   │ ◄─────────────────────► │  Lightup MCP Server │
 │                     │                          │                     │
 │  • Claude Code      │                          │  Exposes 41 tools   │
-│  • Gemini CLI       │                          │  for metrics,       │
-│  • Codex CLI        │                          │  monitors,          │
-│                     │                          │  incidents, docs    │
+│  • Claude Desktop   │                          │  for metrics,       │
+│  • Gemini CLI       │                          │  monitors,          │
+│  • Codex CLI        │                          │  incidents, docs    │
 │                     │                          └──────────┬──────────┘
 └─────────────────────┘                                     │
                                                        REST API
@@ -102,7 +165,7 @@ Lightup Agentic exposes your Lightup data quality platform as an MCP (Model Cont
 
 | Requirement | Details |
 |---|---|
-| AI client | Claude Code, Gemini CLI, or Codex CLI |
+| AI client | Claude Code, Claude Desktop, Gemini CLI, or Codex CLI |
 | Lightup account | An active Lightup instance with at least Viewer access, or sign up for a [30-day free trial](https://my.lightup.ai) |
 | API credential file | Download from Lightup UI → Profile → API Credentials → Download (setup will guide you if you don't have one yet) |
 | Network access | Your machine must be able to reach the Lightup MCP server URL (provided by your Lightup team) |
@@ -260,6 +323,6 @@ Every session is fully isolated — the server only sees and accesses your Light
 |---|---|
 | `Token refresh failed` | Download a new credential file from Lightup UI and re-run setup |
 | `Connection refused` | Verify the MCP server URL is reachable. Check firewall / VPN. |
-| Tools not appearing in AI client | Exit and start a new session |
+| Tools not appearing in AI client | Exit and start a new session. In Claude Desktop, fully quit the app and reopen it. |
 | `HTTP 403` on tool calls | Your Lightup user may lack access to that workspace. Contact your admin. |
 | Wrong workspace data | Verify the `host` in your credential file matches your Lightup instance |

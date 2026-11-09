@@ -32,12 +32,17 @@ Usage:
   ./setup.sh
 
 Supported clients:
-  claude       Configure Lightup for Claude Code
+  claude       Configure Lightup for Claude Code (offers Claude Desktop too)
   gemini-cli   Configure Lightup for Gemini CLI
   codex-cli    Reserved for future support
 
+Client args (claude):
+  --desktop      Also configure Claude Desktop, without asking
+  --no-desktop   Skip Claude Desktop
+
 Examples:
   ./setup.sh claude
+  ./setup.sh claude --desktop
   ./setup.sh claude ~/Downloads/lightup-api-credential.json
   ./setup.sh
 EOF
