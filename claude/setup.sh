@@ -607,6 +607,16 @@ register_claude_desktop() {
         return 1
     fi
 
+    # mcp-remote requires Node 18+. Writing a config that cannot launch is
+    # worse than not writing one — Claude Desktop would just show a dead server.
+    local node_major
+    node_major="$("$node_bin" -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)"
+    if [[ "$node_major" -lt 18 ]]; then
+        warn "Node $("$node_bin" -v 2>/dev/null) is too old for mcp-remote (needs 18+)."
+        warn "Upgrade Node and re-run with --desktop to configure Claude Desktop."
+        return 1
+    fi
+
     local mcp_server sse_url cfg_path path_env
     mcp_server=$(infer_mcp_endpoint "$LIGHTUP_HOST")
     sse_url="${mcp_server}/sse?host=${LIGHTUP_HOST}&refresh_token=${LIGHTUP_REFRESH_TOKEN}&ai_provider=claude"
@@ -627,26 +637,60 @@ const path = require('path');
 const cfgPath = process.env.LIGHTUP_CFG_PATH;
 const name    = process.env.LIGHTUP_MCP_NAME;
 
+const fail = (msg, hint) => {
+  console.error('  ' + msg);
+  if (hint) console.error('  ' + hint);
+  process.exit(1);
+};
+
+// ── Read ──────────────────────────────────────────────────────────────────
 let cfg = {};
 let existed = false;
 try {
-  const text = fs.readFileSync(cfgPath, 'utf8').trim();
+  const st = fs.statSync(cfgPath);
+  if (!st.isFile()) fail(cfgPath + ' is not a regular file.', 'Move it aside and re-run setup.');
   existed = true;
-  if (text) cfg = JSON.parse(text);
 } catch (e) {
-  if (e.code !== 'ENOENT') {
-    // Never clobber a config we could not parse — the user has other servers in there.
-    console.error('  Could not read/parse ' + cfgPath + ': ' + e.message);
-    console.error('  Fix or move that file, then re-run setup.');
-    process.exit(1);
-  }
+  if (e.code !== 'ENOENT') fail('Cannot access ' + cfgPath + ': ' + e.message);
 }
 
 if (existed) {
-  try { fs.copyFileSync(cfgPath, cfgPath + '.bak'); } catch (_) {}
+  let text;
+  try {
+    text = fs.readFileSync(cfgPath, 'utf8').trim();
+  } catch (e) {
+    fail('Cannot read ' + cfgPath + ': ' + e.message,
+         'Check file permissions, then re-run setup.');
+  }
+  if (text) {
+    try {
+      cfg = JSON.parse(text);
+    } catch (e) {
+      // Never clobber a config we could not parse — it holds the user's other servers.
+      fail('Existing config is not valid JSON: ' + e.message,
+           'Fix or move ' + cfgPath + ', then re-run setup.');
+    }
+  }
+  if (cfg === null || typeof cfg !== 'object' || Array.isArray(cfg)) {
+    fail('Existing config is not a JSON object.',
+         'Fix or move ' + cfgPath + ', then re-run setup.');
+  }
 }
 
-if (!cfg.mcpServers || typeof cfg.mcpServers !== 'object') cfg.mcpServers = {};
+// ── Back up before touching anything — abort if we cannot ─────────────────
+if (existed) {
+  try {
+    fs.copyFileSync(cfgPath, cfgPath + '.bak');
+  } catch (e) {
+    fail('Could not back up the existing config: ' + e.message,
+         'Refusing to overwrite it without a backup.');
+  }
+}
+
+// ── Merge ─────────────────────────────────────────────────────────────────
+if (!cfg.mcpServers || typeof cfg.mcpServers !== 'object' || Array.isArray(cfg.mcpServers)) {
+  cfg.mcpServers = {};
+}
 
 cfg.mcpServers[name] = {
   command: process.env.LIGHTUP_NPX_BIN,
@@ -660,8 +704,22 @@ cfg.mcpServers[name] = {
   env: { PATH: process.env.LIGHTUP_PATH_ENV },
 };
 
-fs.mkdirSync(path.dirname(cfgPath), { recursive: true });
-fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2) + '\n');
+// ── Write atomically: a crash or full disk mid-write must not corrupt the
+//    live config, so stage a temp file in the same directory and rename. ───
+const dir = path.dirname(cfgPath);
+const tmp = path.join(dir, '.' + path.basename(cfgPath) + '.lightup.tmp');
+try {
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(tmp, JSON.stringify(cfg, null, 2) + '\n', { mode: 0o600 });
+  fs.renameSync(tmp, cfgPath);
+} catch (e) {
+  try { fs.unlinkSync(tmp); } catch (_) {}
+  fail('Could not write ' + cfgPath + ': ' + e.message,
+       existed
+         ? 'Your original config is unchanged (a copy is at ' + path.basename(cfgPath) + '.bak).'
+         : 'Check directory permissions, then re-run setup.');
+}
+
 if (existed) console.log('  Existing config backed up to ' + path.basename(cfgPath) + '.bak');
 JSEOF
     then

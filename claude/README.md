@@ -243,6 +243,8 @@ Skip the prompt with a flag:
 
 `LIGHTUP_CONFIGURE_DESKTOP=yes|no` does the same for non-interactive runs. Via the repo-level wrapper, pass the flag through: `bash -s -- claude --desktop`.
 
+**Already connected Claude Code before this existed?** Just re-run the same setup command — it is fetched fresh from `main` each time, so it now includes Desktop support. Re-running is idempotent: the Claude Code MCP entry is removed and re-added, the Stop hook is replaced rather than duplicated, and the Desktop config gets a single `lightup` entry.
+
 **How it works.** Claude Desktop only speaks stdio, so the remote SSE server is bridged through [`mcp-remote`](https://www.npmjs.com/package/mcp-remote) (Node.js 18+). Because Claude Desktop launches MCP servers from the GUI — which does not inherit your shell `PATH` — the script writes the absolute `npx` path and an explicit `PATH` into the config.
 
 | Platform | Config path |

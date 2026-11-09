@@ -67,6 +67,17 @@ curl -sL https://raw.githubusercontent.com/lightup-data/lightup/main/setup.sh \
 
 `LIGHTUP_CONFIGURE_DESKTOP=yes|no` works the same way for non-interactive runs.
 
+### Already set up? Just re-run it
+
+Existing users do **not** need a new command or an uninstall. `curl ... | bash -s -- claude` fetches the script fresh from `main` on every run, so the same one-liner you ran before now picks up Claude Desktop support:
+
+```bash
+curl -sL https://raw.githubusercontent.com/lightup-data/lightup/main/setup.sh \
+  | bash -s -- claude
+```
+
+Re-running is safe and idempotent. It re-registers the Claude Code MCP server (removing the old entry first), replaces the Stop hook rather than stacking a second one, and merges a single `lightup` entry into the Desktop config — no duplicates, whatever you ran before.
+
 ### What it writes
 
 Claude Desktop only speaks stdio, so the remote SSE server is bridged through [`mcp-remote`](https://www.npmjs.com/package/mcp-remote) (requires Node.js 18+). The script writes absolute paths, because Claude Desktop launches MCP servers from the GUI and does not inherit your shell `PATH`.
